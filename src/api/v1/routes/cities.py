@@ -1,41 +1,111 @@
 """
 City endpoints.
 
-Endpoints for retrieving city information and metadata.
+Retrieve city information and associated fiscal years.
 """
-from fastapi import APIRouter
+from typing import List, Optional
 
-router = APIRouter()
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+from sqlalchemy import desc
+
+from src.api.dependencies import get_db
+from src.api.v1.schemas.city import CityResponse, CityDetailResponse, FiscalYearSummaryResponse
+from src.database.models.core import City, FiscalYear
+
+router = APIRouter(prefix="/cities")
 
 
-@router.get("/cities")
-async def list_cities():
+@router.get("", response_model=List[CityResponse])
+async def list_cities(
+    state: Optional[str] = Query(None, description="Filter by state (e.g., CA)"),
+    is_active: bool = Query(True, description="Filter by active status"),
+    db: Session = Depends(get_db)
+):
     """
     List all cities in the database.
 
-    Returns basic information about each city.
+    Query Parameters:
+    - state: Filter by state code
+    - is_active: Only show active cities (default: true)
     """
-    # TODO: Implement city listing
-    return {
-        "cities": [],
-        "count": 0,
-        "message": "Endpoint not yet implemented"
-    }
+    query = db.query(City)
+
+    if state:
+        query = query.filter(City.state == state.upper())
+
+    if is_active:
+        query = query.filter(City.is_active == True)
+
+    cities = query.order_by(City.name).all()
+
+    return cities
 
 
-@router.get("/cities/{city_id}")
-async def get_city(city_id: int):
+@router.get("/{city_id}", response_model=CityDetailResponse)
+async def get_city(
+    city_id: int,
+    db: Session = Depends(get_db)
+):
     """
     Get detailed information about a specific city.
 
-    Args:
-        city_id: The ID of the city
-
-    Returns:
-        City details including demographics, fiscal year configuration, etc.
+    Includes:
+    - Basic city information
+    - Demographics
+    - Bankruptcy history (if applicable)
+    - Available fiscal years
     """
-    # TODO: Implement city detail retrieval
-    return {
-        "city_id": city_id,
-        "message": "Endpoint not yet implemented"
-    }
+    city = db.query(City).filter(City.id == city_id).first()
+
+    if not city:
+        raise HTTPException(status_code=404, detail="City not found")
+
+    return city
+
+
+@router.get("/{city_id}/fiscal-years", response_model=List[FiscalYearSummaryResponse])
+async def get_city_fiscal_years(
+    city_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all fiscal years for a city.
+
+    Returns summary information for each year including data availability.
+    """
+    city = db.query(City).filter(City.id == city_id).first()
+
+    if not city:
+        raise HTTPException(status_code=404, detail="City not found")
+
+    fiscal_years = db.query(FiscalYear).filter(
+        FiscalYear.city_id == city_id
+    ).order_by(desc(FiscalYear.year)).all()
+
+    return fiscal_years
+
+
+@router.get("/name/{city_name}", response_model=CityDetailResponse)
+async def get_city_by_name(
+    city_name: str,
+    state: str = Query("CA", description="State code"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get city by name.
+
+    Useful for human-readable URLs like /cities/name/Vallejo
+    """
+    city = db.query(City).filter(
+        City.name.ilike(city_name),  # Case-insensitive
+        City.state == state.upper()
+    ).first()
+
+    if not city:
+        raise HTTPException(
+            status_code=404,
+            detail=f"City '{city_name}' not found in {state}"
+        )
+
+    return city
