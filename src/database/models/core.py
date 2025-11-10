@@ -253,37 +253,8 @@ class DataLineage(Base, AuditMixin):
         return f"<DataLineage(table={self.table_name}, record_id={self.record_id}, field={self.field_name})>"
 
 
-# Placeholder for models referenced in relationships but defined in other files
-# These will be imported when those modules are created
+# Note: PensionPlan, PensionContribution, PensionProjection, OPEBLiability,
+# and PensionAssumptionChange are defined in models/pensions.py
+# They are imported via forward reference to avoid circular imports.
 
-
-class PensionPlan(Base, AuditMixin):
-    """
-    Pension plan data for a fiscal year.
-
-    Placeholder - will be fully implemented in models/pensions.py
-    """
-
-    __tablename__ = "pension_plans"
-
-    id = Column(Integer, primary_key=True)
-    fiscal_year_id = Column(Integer, ForeignKey("fiscal_years.id"), nullable=False)
-
-    # Relationships
-    fiscal_year = relationship("FiscalYear", back_populates="pension_plans")
-
-
-class RiskScore(Base, AuditMixin):
-    """
-    Risk scores for a fiscal year.
-
-    Placeholder - will be fully implemented in models/risk.py
-    """
-
-    __tablename__ = "risk_scores"
-
-    id = Column(Integer, primary_key=True)
-    fiscal_year_id = Column(Integer, ForeignKey("fiscal_years.id"), nullable=False)
-
-    # Relationships
-    fiscal_year = relationship("FiscalYear", back_populates="risk_scores")
+# RiskScore will be implemented in models/risk.py when we implement risk scoring.
