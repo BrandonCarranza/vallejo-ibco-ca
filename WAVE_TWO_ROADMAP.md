@@ -7,214 +7,211 @@
 - Analytics: Transparent risk scoring, multi-scenario projections
 - Tests: 50+ unit + integration tests
 - Deployment: Docker, nginx, automation scripts
+- **Manual data entry tools: CAFR & CalPERS CSV importers ready**
 
 **Wave Two Objective:** Transform infrastructure into living civic accountability system
-- Load real Vallejo data and validate end-to-end
+- Load real Vallejo data (manual entry workflow) and validate end-to-end
 - Harden for production use under adversarial conditions
-- Build operational workflows for data refresh & quality assurance
+- Build operational workflows for data quality assurance
 - Create public-facing interface (dashboard, reports, narratives)
-- Implement community features (voting, oversight, decision logging)
+- Implement community features (decision logging, stakeholder communication)
 - Prepare legal defense infrastructure
+
+**Philosophy:** Manual data entry is FAST, ACCURATE, and DEFENSIBLE. Automation is optional enhancement, not requirement.
 
 ---
 
 ## PHASE 7: DATA REALITY & VALIDATION
 
-### Prompt 7.1: Initialize Database & Load Sample Vallejo Data
+### Prompt 7.1: Initialize Database & Load Vallejo Data (Manual Entry)
 
 ```
-Execute Alembic migration to create live schema, then seed with real Vallejo fiscal data (FY2015-2024).
+Execute Alembic migration to create live schema, then manually enter Vallejo fiscal data using existing CSV import tools.
 
-CONTEXT: Infrastructure is ready but empty. This prompt creates the actual database schema
-and loads 10 years of Vallejo historical data to validate:
-- Database schema works end-to-end
-- Risk scoring produces sensible outputs
-- Projections calculate correctly
-- API endpoints return valid JSON
+CONTEXT: Infrastructure is ready but empty. Wave One built robust manual data entry tools
+(scripts/data_entry/import_cafr_manual.py and import_calpers_manual.py). This prompt:
+1. Creates actual database schema (Alembic migration)
+2. Uses MANUAL transcription workflow to load historical data
+3. Validates end-to-end system functionality
+
+WHY MANUAL ENTRY:
+- FASTER than building extraction automation (1-2 hours per fiscal year)
+- 100% ACCURATE (human-verified at source)
+- DEFENSIBLE (complete data lineage to source document & transcriber)
+- PROVEN workflow (scripts already built and tested)
 
 DELIVERABLES:
 1. Alembic initial migration (auto-generated from models)
-2. Seed script with Vallejo FY2015-2024 data:
-   - CAFR-extracted financial data (revenues, expenditures)
-   - CalPERS pension data (funded ratios, UAL, contribution rates)
-   - Fund balance history
-   - Personnel costs, OPEB obligations
-3. Data validation checks:
-   - Revenue totals match CAFR summaries
-   - Expenditure categories reconcile
-   - Fund balance calculations are consistent
-   - Pension data matches CalPERS reports
-4. Risk score calculation on all historical years
-5. Projection generation for FY2025-2034 (10-year forecast)
-6. Comparison of calculated risk scores vs. external assessments
+   ```bash
+   poetry run alembic revision --autogenerate -m "Initial schema"
+   poetry run alembic upgrade head
+   ```
 
-EXECUTION:
-- Create `scripts/data/seed_vallejo_production.py` (Vallejo complete dataset)
-- Create `scripts/validation/validate_data_integrity.py` (reconciliation checks)
-- Create `scripts/analysis/calculate_historical_risk_scores.py`
-- Update `.env.example` with Vallejo-specific database seed instructions
+2. Manual data entry for Vallejo FY2020-2024 (5 most recent years):
+   - Transcribe from Vallejo CAFRs (revenues, expenditures, fund balance)
+   - Transcribe from CalPERS valuations (pension data, UAL, contribution rates)
+   - Use existing CSV import scripts (scripts/data_entry/)
+   - Estimated effort: 1-2 hours per year = 5-10 hours total
 
-RUN ALEMBIC:
-```bash
-poetry run alembic revision --autogenerate -m "Initial schema"
-poetry run alembic upgrade head
-```
+3. Data validation & reconciliation:
+   - Create `scripts/validation/validate_data_integrity.py`
+   - Verify totals match CAFR summaries
+   - Check fund balance formula: beginning + revenues - expenditures = ending
+   - Flag any transcription errors for correction
 
-VERIFY:
+4. Calculate historical risk scores:
+   - Create `scripts/analysis/calculate_historical_risk_scores.py`
+   - Run risk scoring engine on all loaded fiscal years
+   - Generate risk score progression report
+
+5. Generate 10-year projections:
+   - Run projection engine with base/optimistic/pessimistic scenarios
+   - Identify fiscal cliff year
+   - Validate projection outputs are sensible
+
+VERIFICATION:
 - `psql ibco_dev -c "\dt"` shows all 15+ tables
-- Seed script loads without errors
-- Validation script confirms data integrity
-- Risk scores show progression (improving/deteriorating trend over 10 years)
+- Manual entry completes without errors (CSV import validation works)
+- Data integrity checks pass (reconciliation to source documents)
+- Risk scores show logical progression over time
 - Fiscal cliff analysis identifies likely crisis year
+- API endpoints return valid data for all years
+
+EFFORT ESTIMATE:
+- Alembic setup: 30 minutes
+- Manual transcription (5 years): 5-10 hours
+- Validation scripts: 2-3 hours
+- Risk score calculation: 1 hour
+- Total: ~10-15 hours of focused work
+
+EXPANSION PATH:
+- Start with FY2020-2024 (5 years, most recent)
+- Later: Add FY2015-2019 if historical comparison needed
+- Quality over quantity: nail 5 years perfectly before expanding
 ```
 
-### Prompt 7.2: Build CAFR PDF Extraction Pipeline
+### Prompt 7.2: Build CAFR PDF Extraction Pipeline (OPTIONAL FUTURE ENHANCEMENT)
 
 ```
-Implement automated CAFR PDF extraction to populate Financial, Pension, and Risk models from official documents.
+⚠️ OPTIONAL - NOT REQUIRED FOR WAVE TWO MVP ⚠️
 
-CONTEXT: Vallejo produces annual Comprehensive Annual Financial Reports (CAFRs). These PDFs contain:
-- Audited financial statements (revenues, expenditures, fund balance)
-- Pension actuarial data (funded ratios, contribution rates)
-- Debt schedules
-- Management discussion & analysis (MD&A)
+Manual entry is FASTER for MVP. Build this later if scaling to 50+ cities.
 
-This prompt creates extractors that:
-1. Download/ingest CAFR PDFs
-2. Extract key financial tables (OCR-resistant structured data)
-3. Normalize to IBCo schema
-4. Validate against prior year data (consistency checks)
-5. Flag anomalies for manual review
+CONTEXT: Manual transcription works great for 1-2 cities. If expanding to state network,
+automated extraction becomes valuable. But for Vallejo alone, manual entry is superior:
+- Manual: 1-2 hours per year, 100% accurate
+- Automated: 40+ hours to build extractor, 85-95% accuracy, requires review workflow
 
-DELIVERABLES:
-1. `src/data_pipeline/extractors/cafr_extractor.py` (300+ lines)
+This prompt describes future automation if/when needed.
+
+DELIVERABLES (if building later):
+1. `src/data_pipeline/extractors/cafr_extractor.py`
    - PDFPlumber integration for table extraction
-   - CAFR document structure recognition
-   - Multi-table extraction (balance sheet, revenue detail, expenditure detail)
-   - Fiscal year detection from document metadata
+   - CAFR structure recognition (balance sheet, revenue/expenditure detail)
+   - Confidence scoring (flag low-confidence extractions for manual review)
+
 2. `src/data_pipeline/transformers/cafr_validator.py`
-   - CAFR-to-schema mapping validation
-   - Reconciliation: extracted totals vs. reported totals
+   - Validate extracted totals vs. reported totals
    - Year-over-year anomaly detection
-   - Confidence scoring (high/medium/low based on extraction clarity)
-3. `scripts/data/extract_historical_cafrs.py`
-   - Batch process: Vallejo CAFRs FY2015-2024
-   - Store raw CAFR text extraction in data/raw/cafr/
-   - Generate extraction report with confidence scores
-4. `scripts/validation/reconcile_cafr_to_database.py`
-   - Verify extracted data matches loaded database
-   - Flag discrepancies for manual investigation
-   - Generate extraction quality report
+   - Reconciliation with manual entry (if available)
 
 KEY CHALLENGES:
-- CAFR format varies year-to-year (different auditors, formats)
-- Table structures are visually consistent but XML inconsistent
-- Some tables span multiple pages
-- Handle OCR errors gracefully
+- CAFR format varies year-to-year (different auditors, layouts)
+- Table structures inconsistent across pages
+- OCR errors require manual review anyway
+- Building extractor is 20-40 hours of work
 
-VALIDATION:
-- Extract Vallejo FY2024 CAFR (most recent)
-- Verify: total revenues extracted match official total
-- Verify: total expenditures match official total
-- Verify: fund balance formula (beginning + revenues - expenditures = ending)
-- Compare extraction confidence to manual audit
-- Handle: malformed tables → manual entry fallback
+RECOMMENDATION: Skip for now. Manual entry is proven and fast.
 ```
 
-### Prompt 7.3: Implement CalPERS Pension Data Scraper
+### Prompt 7.3: Implement CalPERS Pension Data Scraper (OPTIONAL FUTURE ENHANCEMENT)
 
 ```
-Build CalPERS public data scraper to populate PensionPlan, PensionContribution, and projection models.
+⚠️ OPTIONAL - NOT REQUIRED FOR WAVE TWO MVP ⚠️
 
-CONTEXT: CalPERS publishes:
-- Funded status reports (funded ratio, market value of assets, UAL)
-- Valuation data (discount rates, mortality assumptions)
-- Contribution schedules (employer/employee rates by plan)
-- Actuarial assumptions (inflation, payroll growth, life expectancy)
+Manual entry from CalPERS PDFs is straightforward and accurate.
 
-These are scattered across CalPERS website and PDFs. This prompt:
-1. Identifies Vallejo's pension plans with CalPERS
-2. Scrapes/fetches official pension data
-3. Extracts key metrics (funded ratio, UAL, contribution rates)
-4. Normalizes to PensionPlan schema
-5. Tracks assumption changes (discount rate movements, etc.)
+CONTEXT: CalPERS publishes annual valuation reports (PDFs). Key pension metrics
+(funded ratio, UAL, contribution rates) are in summary tables. Manual transcription
+takes ~15 minutes per year. Building a scraper takes 20+ hours and still requires
+validation. For Vallejo alone, manual entry is superior.
 
-DELIVERABLES:
-1. `src/data_pipeline/extractors/calpers_scraper.py` (250+ lines)
+This prompt describes future automation if/when scaling to many cities.
+
+DELIVERABLES (if building later):
+1. `src/data_pipeline/extractors/calpers_scraper.py`
    - CalPERS public data portal integration
-   - Plan identification: retrieve all Vallejo plans
-   - Metrics extraction: funded status, UAL, contribution rates
-   - Historical data retrieval (retroactive 5+ years if available)
-   - Assumption tracking (rate changes, methodology updates)
+   - Identify Vallejo pension plans (MISCV, PEPRA, etc.)
+   - Extract funded status, UAL, contribution schedules
+
 2. `src/data_pipeline/transformers/calpers_validator.py`
-   - CalPERS-to-schema mapping validation
    - Reasonableness checks (funded ratio 0-150%, UAL positive)
-   - Anomaly detection (sudden assumption changes)
-   - Reconciliation: CalPERS data vs. Vallejo CAFR pension section
-3. `scripts/data/scrape_calpers_vallejo.py`
-   - Batch scrape: All Vallejo plans
-   - Store raw JSON/CSV in data/raw/calpers/
-   - Generate scrape report with timestamps
-4. `scripts/validation/reconcile_calpers_to_cafr.py`
-   - Compare CalPERS funded ratios to CAFR pension notes
-   - Flag discrepancies (usually timing differences)
-   - Document assumption changes quarter-by-quarter
+   - Reconciliation with CAFR pension notes
 
 KEY CHALLENGES:
-- CalPERS publishes data with 3-6 month lag
-- Plan structure for Vallejo complex (MISCV, PEPRA, etc.)
-- Discount rate changes affect UAL projections significantly
-- Some historical data unavailable online
+- CalPERS data has 3-6 month publication lag
+- Plan structure complex (multiple plans per city)
+- Historical data not always available online
+- Building scraper is 20+ hours of work
 
-INTEGRATION:
-- Create PensionPlan records for each Vallejo CalPERS plan
-- Track discount rate history (critical for projection sensitivity)
-- Store assumption changes in ScenarioAssumption table
-- Link to FinancialProjection.assumptions for scenario modeling
+RECOMMENDATION: Skip for now. Manual entry works great.
 ```
 
 ### Prompt 7.4: Create Data Quality Dashboard & Validation Framework
 
 ```
-Build validation framework and internal quality dashboard to ensure data integrity before public release.
+Build validation framework for manually-entered data to ensure integrity before public release.
 
-CONTEXT: After loading data from multiple sources (CAFR, CalPERS, manual entry), need:
-1. Data quality metrics (completeness, accuracy, timeliness)
-2. Validation rules (revenues > 0, expenditures > 0, etc.)
-3. Reconciliation checks (cross-source consistency)
-4. Anomaly alerts (unusual year-over-year changes)
-5. Manual review workflow (flag items for human verification)
+CONTEXT: Manual entry is fast and accurate, but human error happens. Need validation
+framework to catch:
+- Transcription typos (revenues in millions entered as billions)
+- Math errors (fund balance doesn't reconcile)
+- Year-over-year anomalies (20% revenue drop unexplained)
+- Missing data (forgot to enter pension plan)
 
 DELIVERABLES:
 1. `src/data_quality/validators.py` (300+ lines)
-   - Data quality rules (type, range, relationship constraints)
-   - Cross-table reconciliation checks
-   - Year-over-year anomaly detection (std dev threshold)
-   - Temporal consistency (no backwards-looking data modifications)
+   - Data quality rules (type checks, range checks, relationship constraints)
+   - Cross-table reconciliation (revenues - expenditures = fund balance change)
+   - Year-over-year anomaly detection (flag >25% changes)
+   - Temporal consistency (newer data can't contradict older data)
+
 2. `src/data_quality/quality_metrics.py`
-   - Calculate: % complete, % validated, data freshness, anomaly count
-   - Generate quality scorecards by data source
-   - Track validation status transitions (pending → validated → published)
+   - Calculate completeness: % of fields populated
+   - Calculate consistency: cross-table reconciliation score
+   - Track validation status: pending → validated → published
+   - Generate quality scorecards by fiscal year
+
 3. `src/api/v1/routes/admin/quality_dashboard.py`
-   - Internal-only endpoint: `/api/v1/admin/quality-status`
-   - Returns: Data completeness matrix, validation alerts, reconciliation issues
+   - Internal endpoint: `/api/v1/admin/quality-status`
+   - Shows: data completeness matrix, validation alerts, reconciliation issues
    - Sortable by severity (critical/warning/info)
+
 4. `scripts/validation/generate_quality_report.py`
-   - Comprehensive data quality report (HTML + JSON)
-   - Source-by-source breakdown
+   - Comprehensive quality report (HTML + JSON)
+   - Year-by-year breakdown
    - Anomaly summary with explanations
    - Recommendations for follow-up
 
-VALIDATION RULES:
-- Financial: revenues, expenditures, fund balance all positive
-- Pension: funded ratio 0-150%, UAL positive, contribution rate <50%
-- Reconciliation: CAFR financials ± 2% to source documents
-- Temporal: each fiscal year's values reasonable vs. prior years
+VALIDATION RULES (for manual entry):
+- Financial: revenues > 0, expenditures > 0, fund balance can be negative
+- Pension: funded ratio 0-150%, UAL ≥ 0, contribution rate < 50% of payroll
+- Reconciliation: fund balance change = revenues - expenditures ± transfers (within 2%)
+- Temporal: each year's values reasonable vs. prior year (flag >25% unexplained changes)
 
 ALERTS:
-- Critical: Missing revenue/expenditure data (>5% of budget)
-- Warning: Anomalous change (>25% vs. prior year, unexplained)
-- Info: Data not yet validated by human reviewer
+- Critical: Missing core data (no revenues/expenditures for a year)
+- Critical: Reconciliation failure (fund balance doesn't match formula)
+- Warning: Anomalous change (>25% vs. prior year, no annotation)
+- Info: Data entered but not yet reviewed
+
+WORKFLOW:
+1. Operator manually enters data via CSV import
+2. Validation runs automatically
+3. Quality dashboard shows any issues
+4. Operator reviews flagged items
+5. Corrections made, re-validate
+6. When quality score >95%, mark as "validated" and publish
 
 OUTPUT:
 - Dashboard URL: `http://localhost:8000/api/v1/admin/quality-dashboard`
@@ -232,26 +229,30 @@ Add structured logging, metrics, and alerting for production resilience.
 
 DELIVERABLES:
 1. `src/config/observability.py` (structured logging, metrics)
-   - Structured JSON logging (request ID, duration, status)
+   - Structured JSON logging (request ID, duration, status, user agent)
    - Prometheus metrics export (response times, database queries, errors)
-   - Alert thresholds (API latency >1s, error rate >1%)
+   - Alert thresholds (API latency >1s, error rate >1%, database errors)
+
 2. `infrastructure/monitoring/prometheus.yml`
    - Scrape metrics from API /metrics endpoint
    - Database connection pool monitoring
-   - Request latency histograms
+   - Request latency histograms (p50, p95, p99)
+
 3. `infrastructure/monitoring/alerting_rules.yml`
-   - Alert on API latency spike
-   - Alert on database connection exhaustion
-   - Alert on data staleness (CAFR not updated in >6 months)
+   - Alert: API latency spike (p95 >1s for 5 minutes)
+   - Alert: database connection exhaustion (pool >90% full)
+   - Alert: data staleness (last data update >6 months ago)
+
 4. `infrastructure/grafana-dashboards/`
-   - System health (uptime, response times, error rates)
-   - Data freshness (last CAFR import, last CalPERS sync)
-   - Risk score trends (Vallejo score progression)
-   - API usage (endpoints called, response sizes)
+   - System health: uptime, response times, error rates
+   - Data freshness: last CAFR entry, last CalPERS entry
+   - Risk score trends: Vallejo score progression over time
+   - API usage: endpoints called, unique visitors, response sizes
 
 INTEGRATION:
-- Wire into Docker compose stack
-- Export to external monitoring (DataDog, Honeycomb, or self-hosted)
+- Add Prometheus + Grafana to docker-compose.prod.yml
+- Export metrics to external monitoring (optional: DataDog, Honeycomb)
+- Set up email/SMS alerts for critical issues
 ```
 
 ### Prompt 8.2: Add API Rate Limiting & Request Authentication
@@ -262,20 +263,30 @@ Implement rate limiting and optional token authentication for API protection.
 DELIVERABLES:
 1. `src/api/middleware/rate_limiting.py`
    - Redis-backed rate limiting
-   - Default: 100 requests/hour (public)
-   - Higher tier: 1000 requests/hour (authenticated)
-   - Burst allowance: 20 requests/10s
+   - Public tier: 100 requests/hour (no auth required)
+   - Researcher tier: 1000 requests/hour (JWT token)
+   - Burst allowance: 20 requests/10 seconds
+
 2. `src/api/auth/tokens.py`
    - JWT token generation for researchers, journalists, civil society
-   - Token types: public (read-only), researcher (advanced endpoints)
+   - Token types: public (read-only), researcher (bulk export endpoints)
    - Expiration: 1 year (long-lived for accessibility)
-3. `scripts/admin/generate_api_tokens.py`
-   - Tool to issue tokens to known requesters
-   - Track: who has token, issue date, purpose
-4. `src/api/v1/routes/admin/tokens.py`
-   - Internal admin endpoint to revoke, regenerate tokens
+   - Revocation support (blacklist)
 
-RATIONALE: Rate limiting protects infrastructure; authentication enables graduated access without breaking public API
+3. `scripts/admin/generate_api_tokens.py`
+   - CLI tool to issue tokens to known requesters
+   - Track: who has token, issue date, purpose, contact info
+   - Output token + usage instructions
+
+4. `src/api/v1/routes/admin/tokens.py`
+   - Admin endpoint to revoke/regenerate tokens
+   - View active tokens and usage statistics
+
+RATIONALE:
+- Rate limiting protects infrastructure from abuse
+- Authentication enables graduated access tiers
+- Public API remains fully accessible (no auth required for basic queries)
+- Researcher tier supports bulk analysis without hitting limits
 ```
 
 ### Prompt 8.3: Implement Dead-Man's Switch & Data Persistence
@@ -285,58 +296,93 @@ Build automated backup, archival, and dead-man's switch system.
 
 DELIVERABLES:
 1. `scripts/maintenance/backup_strategy.py`
-   - Daily snapshots to S3 (database dump + data files)
-   - Quarterly archival to Glacier
+   - Daily database snapshots to S3/Backblaze B2
+   - Weekly full backups (database + data files)
+   - Quarterly archival to Glacier/cold storage
    - 7-year retention for legal discovery
-2. `scripts/maintenance/dead_mans_switch.py`
-   - Scheduled verification: operator pings system weekly
-   - If no ping in 30 days: auto-publish latest dataset to GitHub
-   - Ensures data lives if operator unavailable
-3. `src/api/v1/routes/admin/health_checkin.py`
-   - POST /api/v1/admin/checkin (operator pings system)
-   - Resets dead-man's timer
-4. Infrastructure: automated S3 upload + GitHub release publication
+   - Backup verification (restore test monthly)
 
-CONTEXT: You've described this. Build it.
+2. `scripts/maintenance/dead_mans_switch.py`
+   - Weekly operator check-in requirement
+   - If no check-in for 30 days: auto-publish dataset to GitHub
+   - Publish: database dump + source documents + methodology docs
+   - Ensures data survives if operator silenced/incapacitated
+
+3. `src/api/v1/routes/admin/health_checkin.py`
+   - POST /api/v1/admin/checkin: operator pings system
+   - Resets 30-day dead-man's timer
+   - Returns: days until auto-publish, last check-in date
+
+4. Infrastructure automation:
+   - S3/B2 bucket setup with lifecycle policies
+   - GitHub Actions workflow for auto-publication
+   - Email notifications at 7 days / 3 days / 1 day before trigger
+
+RATIONALE:
+- Dead-man's switch is insurance against suppression
+- If legal action silences operator, data auto-publishes
+- Ensures civic transparency outlasts any individual
+- "Streisand Effect" baked into infrastructure
 ```
 
 ---
 
 ## PHASE 9: OPERATIONAL WORKFLOWS
 
-### Prompt 9.1: Implement Data Refresh Orchestration
+### Prompt 9.1: Implement Data Refresh Orchestration (Manual Entry Workflow)
 
 ```
-Build automated monthly/quarterly data refresh workflow.
+Build workflow for periodic data refresh via manual entry.
+
+CONTEXT: Manual entry is ongoing process. When new CAFR/CalPERS reports publish,
+need workflow to:
+1. Notify operator that new data available
+2. Guide manual entry process
+3. Run validation automatically
+4. Recalculate risk scores and projections
+5. Generate "what changed" report
 
 DELIVERABLES:
 1. `src/data_pipeline/orchestration/refresh_workflows.py`
-   - Monthly: download latest CAFR (if available), scrape CalPERS
-   - Quarterly: full data validation + quality checks
-   - Automatic: risk score recalculation on all years
-   - Automatic: projection regeneration with updated assumptions
+   - Quarterly check: Is new CAFR available? (scrape Vallejo finance website for new PDFs)
+   - Annual check: Is new CalPERS valuation available?
+   - Generate notification: "FY2025 CAFR published - ready for manual entry"
+   - After manual entry: auto-run validation, risk scoring, projections
+
 2. `scripts/maintenance/schedule_refresh.py`
-   - Celery/APScheduler integration
-   - Trigger: 1st of each month at 2am UTC
-   - Retry logic: if download fails, retry in 2 days
+   - Scheduled check (quarterly): Are new source documents available?
+   - Email operator: "New data available, please transcribe"
+   - After entry: trigger validation + analytics pipeline
+   - APScheduler integration (or cron job)
+
 3. `scripts/maintenance/refresh_report.py`
-   - Generate summary: data updated, new risk scores, projection changes
-   - Publish to admin dashboard
+   - Generate "what changed" report after new data entered
+   - Compare: new risk score vs. prior year
+   - Compare: fiscal cliff year (did it move?)
+   - Highlight: biggest changes (revenue/expenditure categories)
+   - Output: HTML report + email to stakeholders
+
 4. `src/api/v1/routes/admin/refresh_status.py`
-   - Endpoint to check data refresh status
-   - Shows: last refresh date, next scheduled refresh, any errors
+   - Endpoint: GET /api/v1/admin/refresh-status
+   - Shows: last data entry date, next expected CAFR, data completeness
 
 WORKFLOW:
 ```
-Monthly refresh:
-  1. Attempt CAFR download from Vallejo finance website
-  2. Extract tables, validate against prior year
-  3. If extraction confidence >95%: auto-load to database
-  4. If <95%: flag for manual review
-  5. Scrape CalPERS for Vallejo pension updates
-  6. Recalculate risk scores for all fiscal years
-  7. Regenerate 10-year projections
-  8. Publish refresh report to dashboard
+Quarterly (Jan, Apr, Jul, Oct):
+  1. Check if new Vallejo CAFR published
+  2. If yes: email operator with PDF link
+  3. Operator manually enters data (1-2 hours)
+  4. System auto-validates data
+  5. If validation passes: recalculate risk scores, regenerate projections
+  6. Generate "what changed" report
+  7. Publish report to dashboard
+
+Annual (each July after CalPERS publishes):
+  1. Check for new CalPERS valuation
+  2. Email operator with valuation PDF link
+  3. Operator manually enters pension data (15 minutes)
+  4. System validates + recalculates pension stress indicators
+  5. Update projections with new pension assumptions
 ```
 ```
 
@@ -345,73 +391,128 @@ Monthly refresh:
 ```
 Implement comprehensive data lineage tracking for forensic accountability.
 
+CONTEXT: Manual entry requires provenance tracking. Every data point must trace to:
+- Source document (CAFR page 34, CalPERS valuation page 12)
+- Transcriber (who entered it, when)
+- Reviewer (who validated it, notes)
+- Confidence score (100% for manual entry with validation)
+
+This is CRITICAL for legal defense. Any claim must show complete chain of custody.
+
 DELIVERABLES:
-1. `src/database/models/metadata.py` (DataLineage, AuditLog models)
-   - Track: every data point's source document, extraction method, confidence score
-   - Track: every modification (who changed what when, why)
-   - Immutable audit log (no delete, only append)
+1. Enhanced data models (extend existing DataLineage table):
+   - Track: source document URL/path, page number, table name
+   - Track: transcriber name, entry timestamp, notes
+   - Track: reviewer name, validation timestamp, approval notes
+   - Immutable audit log (no deletes, only appends)
+
 2. `src/analytics/lineage_tracer.py`
-   - Trace: fiscal year risk score → back to source CAFR → specific page/table
-   - Generate: "evidence chain" for any claim
+   - Function: trace any data point back to source
+   - Example: Risk score → pension funded ratio → CalPERS valuation page 12
+   - Generate complete evidence chain with timestamps
+
 3. `scripts/reports/generate_lineage_report.py`
    - For any data point: show complete provenance
-   - Include: document date, extraction method, confidence, reviewer notes
+   - Include: source document, page, transcriber, reviewer, confidence
+   - Output: HTML report with clickable source links
+
 4. Public endpoint: `/api/v1/metadata/lineage/{data_point_id}`
    - Returns complete chain of custody for any metric
+   - Public transparency: anyone can audit data provenance
 
 EXAMPLE OUTPUT:
 ```
 Risk Score FY2024: 68 (High)
 └─ Pension Funded Ratio: 62%
-   └─ CalPERS Valuation Report, 2024-06-30
-      └─ Market Value Assets: $4.2B
-      └─ Total Pension Liability: $6.8B
-      └─ Confidence: 99% (official document)
-   └─ Manual Review: John Smith, 2024-07-15 (approved)
+   └─ Source: CalPERS Actuarial Valuation, June 30, 2024
+      URL: https://www.calpers.ca.gov/.../vallejo_2024.pdf
+      Page: 12, Table 5
+      ├─ Market Value Assets: $4.2B (transcribed by: Jane Doe, 2024-08-01 10:30 UTC)
+      ├─ Total Pension Liability: $6.8B (transcribed by: Jane Doe, 2024-08-01 10:35 UTC)
+      └─ Calculation: 4.2 / 6.8 = 0.62 (62% funded)
+   └─ Validation: Approved by John Smith, 2024-08-02 14:20 UTC
+      Notes: "Cross-checked with CAFR pension note, values match"
+      Confidence: 100% (manual entry, validated)
+
 └─ Structural Deficit: $45M
-   └─ Vallejo CAFR FY2024, page 34
-      └─ Total Revenues: $298M
-      └─ Total Expenditures: $343M
-      └─ Confidence: 97% (PDF extraction)
-   └─ Manual Review: Jane Doe, 2024-08-01 (approved with note: education costs spike from infrastructure investment)
+   └─ Source: Vallejo CAFR FY2024, Basic Financial Statements
+      URL: https://www.cityofvallejo.net/.../CAFR_2024.pdf
+      Page: 34, Statement of Activities
+      ├─ Total Revenues: $298M (transcribed by: Jane Doe, 2024-07-15 09:00 UTC)
+      ├─ Total Expenditures: $343M (transcribed by: Jane Doe, 2024-07-15 09:15 UTC)
+      └─ Calculation: 298 - 343 = -45 (deficit)
+   └─ Validation: Approved by Jane Doe, 2024-07-15 11:00 UTC
+      Notes: "Matches CAFR summary totals, fund balance reconciles"
+      Confidence: 100% (manual entry, reconciled)
 ```
+
+RATIONALE:
+- Forensic accountability: every claim traceable to source
+- Legal defense: complete evidence chain
+- Public trust: full transparency of methodology
+- Manual entry advantage: 100% confidence scores (vs. 85-95% for automation)
 ```
 
 ### Prompt 9.3: Create Manual Review & Validation Workflow
 
 ```
-Build human-in-the-loop workflow for data validation before public release.
+Build human-in-the-loop validation workflow for manually-entered data.
+
+CONTEXT: Manual entry is accurate but not perfect. Need workflow for:
+1. Peer review (second person validates first person's entry)
+2. Anomaly flagging (system alerts to unusual values)
+3. Correction workflow (fix errors, document changes)
 
 DELIVERABLES:
 1. `src/api/v1/routes/admin/review_queue.py`
-   - GET /api/v1/admin/review-queue: returns flagged data items
-   - Items: extracted data with confidence <95%, anomalies, reconciliation mismatches
+   - GET /api/v1/admin/review-queue: returns items pending validation
+   - Items: newly entered data, flagged anomalies, reconciliation issues
+   - Sortable by: severity (critical/warning), fiscal year, data type
+
 2. `src/api/v1/routes/admin/validation_endpoint.py`
    - POST /api/v1/admin/validate/{item_id}: approve/reject data
-   - Stores: validator name, timestamp, notes, confidence adjustment
+   - Fields: validator name, approval status, notes, confidence adjustment
+   - Stores immutable validation record
+
 3. `scripts/reports/review_report.py`
-   - Daily report of items pending validation
-   - By severity: critical (>$10M impact), warning (>$1M), info
-4. UI component (if implementing frontend):
-   - Review dashboard: see flagged items, approve/reject, add notes
+   - Daily/weekly report of items pending validation
+   - By severity: critical (reconciliation failures), warning (anomalies), info (new entry)
+   - Email to validator: "3 items need review"
+
+4. Validation workflow states:
+   - ENTERED: data manually entered, not yet reviewed
+   - FLAGGED: validation rules detected anomaly
+   - APPROVED: reviewer confirmed data correct
+   - CORRECTED: reviewer fixed error, documented change
+   - PUBLISHED: approved data made public via API
 
 WORKFLOW:
 ```
-Data extraction completes → validation check:
-  - If confidence >95%: auto-approve
-  - If 80-95%: flag for review
-  - If <80%: manual entry required
-  
+Manual entry completes → Validation check:
+  - Run automated validation rules
+  - If all pass: mark APPROVED (auto-approve if reconciliation perfect)
+  - If anomalies: mark FLAGGED, add to review queue
+
 Reviewer sees:
-  - Extracted value + context (page image, nearby text)
-  - Prior year value for comparison
-  - Suggested correction if applicable
-  
+  - Flagged item with context (entered value, prior year value, validation rule violated)
+  - Source document reference (CAFR page image, CalPERS table)
+  - Suggested action (approve as-is, correct value, investigate further)
+
 Reviewer action:
-  - Approve (confidence increases)
-  - Reject + suggest correction (confidence resets)
-  - Flag anomaly (gets escalated)
+  - APPROVE: value correct despite anomaly (add note explaining why)
+  - CORRECT: fix transcription error, document change
+  - INVESTIGATE: escalate for deeper review
+
+After approval:
+  - Item marked PUBLISHED
+  - Data available via public API
+  - Lineage includes validation timestamp + reviewer notes
 ```
+
+RATIONALE:
+- Peer review catches transcription errors
+- Anomaly detection finds unusual values (typos, formula errors)
+- Documented validation builds institutional credibility
 ```
 
 ---
@@ -425,32 +526,37 @@ Create production Metabase dashboards for public visualization of Vallejo fiscal
 
 DELIVERABLES:
 1. `src/dashboard/metabase/dashboards/vallejo_fiscal_overview.json`
-   - Revenue trends (10-year history)
-   - Expenditure trends (by category)
-   - Fund balance trajectory
-   - Risk score progression
+   - Revenue trends (available historical years)
+   - Expenditure trends (by category: public safety, pensions, etc.)
+   - Fund balance trajectory (shows reserve depletion or accumulation)
+   - Risk score progression (shows improving/deteriorating fiscal health)
+
 2. `src/dashboard/metabase/dashboards/pension_analysis.json`
-   - Funded ratio trend
-   - UAL growth vs. revenues
-   - Contribution burden trend
-   - Projection: pension as % of payroll
+   - Pension funded ratio trend (track toward/away from full funding)
+   - UAL growth vs. city revenues (shows burden magnitude)
+   - Employer contribution burden (% of payroll)
+   - Projection: pension costs as % of budget (shows crowding out other services)
+
 3. `src/dashboard/metabase/dashboards/fiscal_projections.json`
-   - 10-year projection comparison (base vs. optimistic vs. pessimistic)
-   - Fiscal cliff identification: when does reserves run out?
+   - 10-year projection: base vs. optimistic vs. pessimistic scenarios
+   - Fiscal cliff identification: when do reserves run out?
    - Sensitivity analysis: what % revenue increase avoids cliff?
-4. `src/dashboard/metabase/dashboards/peer_comparison.json`
-   - Vallejo vs. other CA cities (Oakland, Stockton, San Jose, etc.)
-   - Risk score comparison
-   - Funded ratio comparison
-5. Public URL: `https://ibco-ca.us/dashboard/`
-   - Embed read-only Metabase dashboards
-   - No login required for public views
+   - Key driver visualization: what's causing the crisis? (pensions, revenue decline, etc.)
+
+4. `src/dashboard/metabase/dashboards/peer_comparison.json` (if multi-city data available)
+   - Vallejo vs. other CA cities: risk scores, funded ratios, fiscal health
+   - Ranking: which CA cities in worst shape?
+
+5. Public access configuration:
+   - URL: `https://ibco-ca.us/dashboard/` (or embedded in ibco-ca.us)
+   - Read-only Metabase embeds (no login required)
+   - Auto-refresh nightly after data updates
 
 INTEGRATION:
-- Connect Metabase to PostgreSQL
-- Configure read-only database user
-- Import dashboards via API
-- Set refresh schedule (nightly)
+- Connect Metabase to PostgreSQL (docker-compose already includes it)
+- Create read-only database user for Metabase
+- Import dashboard configurations via Metabase API
+- Set refresh schedule (nightly at 2am UTC)
 ```
 
 ### Prompt 10.2: Generate Public Reports & Narratives
@@ -460,27 +566,48 @@ Create automated report generation system for public communication.
 
 DELIVERABLES:
 1. `src/reports/generators/fiscal_summary_report.py`
-   - HTML + PDF report: "Vallejo Fiscal Status Report"
-   - Sections: revenues, expenditures, pension obligations, risk score
-   - Include: historical trends, projections, key risks
-   - Updated quarterly
-2. `src/reports/generators/risk_narrative.py`
-   - Generate human-readable narrative of risk score
-   - Example: "Vallejo's fiscal stress score of 68/100 reflects significant challenges. Primary concern: pensions are only 62% funded, with unfunded obligations of $2.3B. At current trends, reserves will be exhausted by FY2029, creating immediate fiscal crisis."
-3. `src/reports/generators/projection_scenario_report.py`
-   - Compare scenarios: base case vs. pension reform vs. revenue enhancements
-   - Show: outcomes under each scenario
-   - Include: what would it take to avoid fiscal cliff?
-4. `scripts/reports/publish_quarterly_report.py`
-   - Generate all reports
-   - Publish to ibco-ca.us/reports/
-   - Create press release template
-   - Email notifications to stakeholders
+   - Generate HTML + PDF: "Vallejo Fiscal Status Report"
+   - Sections:
+     * Executive summary (1-paragraph fiscal health assessment)
+     * Revenues (trends, sources, volatility)
+     * Expenditures (trends, major categories, pension burden)
+     * Pension obligations (funded status, UAL, long-term outlook)
+     * Risk score (composite score, category breakdown, top concerns)
+     * Projections (10-year outlook, fiscal cliff analysis)
+   - Updated quarterly after new data entered
+   - Include all charts from Metabase dashboards
 
-DELIVERY:
-- Reports in: HTML (web), PDF (printable), JSON (machine-readable)
-- Public access: no authentication required
-- Archive: all reports available in /reports/archive/
+2. `src/reports/generators/risk_narrative.py`
+   - Generate human-readable narrative from risk score components
+   - Example: "Vallejo's fiscal stress score of 68/100 (High) reflects significant challenges.
+     Primary driver: pensions only 62% funded with $2.3B unfunded liability. At current trends,
+     general fund reserves will be exhausted by FY2029, creating immediate budget crisis.
+     Key risk indicators: structural deficit of $45M (15% of revenues), pension contributions
+     consuming 38% of payroll, and fund balance below recommended 10% threshold."
+
+3. `src/reports/generators/projection_scenario_report.py`
+   - Compare scenarios side-by-side
+   - Base case: current trends continue
+   - Optimistic: pension reform + revenue growth
+   - Pessimistic: pension costs accelerate + revenue decline
+   - For each: fiscal cliff year, cumulative deficit, policy implications
+
+4. `scripts/reports/publish_quarterly_report.py`
+   - Generate all reports (fiscal summary, risk narrative, projections)
+   - Publish to static website: ibco-ca.us/reports/FY2024_Q3.html
+   - Archive all prior reports: ibco-ca.us/reports/archive/
+   - Generate press release template (for media distribution)
+   - Send email notifications to stakeholder list
+
+DELIVERY FORMATS:
+- HTML (web-optimized, responsive)
+- PDF (printable, archival)
+- JSON (machine-readable for researchers)
+
+PUBLIC ACCESS:
+- No authentication required
+- Permalinks for each report (for citation)
+- RSS feed for new reports
 ```
 
 ### Prompt 10.3: Build Public API Documentation & Examples
@@ -490,30 +617,42 @@ Create comprehensive API documentation for researchers and developers.
 
 DELIVERABLES:
 1. `docs/API_USAGE_GUIDE.md` (detailed guide with examples)
-   - Authentication (if token-based)
-   - Rate limiting (public vs. authenticated tiers)
-   - Endpoint reference: query examples in curl, Python, JavaScript
-   - Example: "Get Vallejo risk score for FY2024"
-   - Example: "Get 10-year projection for scenario='pension_reform'"
-   - Example: "Compare Vallejo vs. peer cities"
+   - Getting started: no auth required for basic queries
+   - Rate limiting: 100 req/hour public, 1000 req/hour with token
+   - Endpoint reference with curl examples:
+     * GET /api/v1/cities - List all cities
+     * GET /api/v1/risk/cities/1/current - Latest Vallejo risk score
+     * GET /api/v1/projections/cities/1/fiscal-cliff - Fiscal cliff analysis
+   - Response format examples (JSON)
+   - Error handling (4xx/5xx codes)
+
 2. `docs/DEVELOPER_GUIDE.md` (for extending system)
-   - How to add new indicators
-   - How to add new scenarios
-   - How to contribute data sources
-3. `src/api/v1/routes/__init__.py` (OpenAPI tags & descriptions)
-   - Auto-generate Swagger/OpenAPI documentation
-   - Public at: `/api/v1/docs`
+   - How to add new risk indicators
+   - How to add new projection scenarios
+   - How to contribute data (manual entry workflow)
+   - Database schema documentation
+   - Code contribution guidelines
+
+3. `src/api/v1/routes/__init__.py` (OpenAPI enhancements)
+   - Complete OpenAPI tags & descriptions
+   - Example requests/responses for each endpoint
+   - Auto-generate interactive Swagger docs at /docs
+
 4. `scripts/docs/generate_api_reference.py`
-   - Auto-generate API reference from code
-   - Update on each deploy
-5. Code examples repository structure:
-   - `examples/python_client.py` - Python API client
-   - `examples/fetch_risk_scores.js` - JavaScript example
-   - `examples/curl_commands.sh` - Simple curl examples
+   - Auto-generate API reference from OpenAPI spec
+   - Include: all endpoints, parameters, response schemas
+   - Update on each deployment
+
+5. Code examples:
+   - `examples/python_client.py` - Python requests usage
+   - `examples/fetch_risk_scores.js` - JavaScript fetch() usage
+   - `examples/curl_commands.sh` - Curl examples for common queries
+   - `examples/data_analysis.ipynb` - Jupyter notebook for researchers
 
 DISTRIBUTION:
-- Publish to ReadTheDocs or GitHub Pages
-- Host at: docs.ibco-ca.us or ibco-ca.us/docs
+- Host at: docs.ibco-ca.us (GitHub Pages or ReadTheDocs)
+- Link from main site and API responses
+- Include in researcher token emails
 ```
 
 ---
@@ -527,32 +666,49 @@ Build system to log city council decisions and track fiscal impact predictions v
 
 DELIVERABLES:
 1. `src/database/models/civic.py` (Decision, Vote, Outcome models)
-   - Track: city council votes on budget, bonds, rate increases
-   - Store: vote date, description, fiscal impact prediction, actual outcome
+   - Track: city council votes on budget, tax measures, bonds, labor contracts
+   - Store: decision date, description, fiscal impact prediction, actual outcome
+   - Link: to affected fiscal years (future impact tracking)
+
 2. `src/api/v1/routes/admin/decisions.py`
-   - POST /api/v1/admin/decisions: log new council decision
-   - GET /api/v1/decisions: public query by date/category
+   - POST /api/v1/admin/decisions: manually log new council decision
+   - Fields: date, title, description, predicted fiscal impact (± $M/year)
+   - GET /api/v1/decisions: public query by date/category/impact
+
 3. `src/analytics/decision_impact.py`
-   - Predict: fiscal impact of proposed decision (revenue increase? cost savings?)
-   - Track: actual impact 6-12 months later
-   - Compare: prediction vs. reality (builds institutional credibility)
+   - Predict fiscal impact of proposed decision
+   - Example: "Sales tax increase → +$25M annual recurring revenue"
+   - Example: "Labor contract → +$5M annual personnel costs"
+   - Track actual impact 6-12 months later
+   - Calculate prediction accuracy (builds institutional credibility)
+
 4. `scripts/reports/decision_impact_report.py`
-   - Quarterly: show all city council decisions logged
+   - Quarterly: show all logged decisions
    - Compare predictions to actual outcomes
-   - Highlight: best/worst prediction accuracy
+   - Highlight: accurate predictions (builds trust)
+   - Acknowledge: inaccurate predictions (transparent about errors)
 
-EXAMPLE:
+EXAMPLE WORKFLOW:
 ```
-Decision (Nov 2024): Vallejo voters approve Measure V (sales tax increase)
-Prediction: +$25M annual recurring revenue
-Status: Logged, prediction pending outcome
+Decision logged (Nov 2024): Vallejo voters approve Measure V (sales tax increase)
+Prediction: +$25M annual recurring revenue (entered manually by analyst)
+Status: Pending outcome (will track FY2025 actual revenues)
 
-Outcome (Jun 2025): First 6 months show +$12.5M
-Comment: "On track for full-year estimate, some collection delays from new businesses"
+Update (Jun 2025): First 6 months actuals available
+Actual: +$12.5M (on track for full-year estimate)
+Comment: "Some collection delays from new businesses, but trending as predicted"
 
-Outcome (Dec 2025): Full-year shows +$26M
-Comment: "Better than predicted; strong economic growth + higher compliance"
+Final update (Dec 2025): Full-year actuals available
+Actual: +$26M annual revenue
+Accuracy: 104% of prediction (within 4%)
+Comment: "Better than predicted due to strong economic growth and high compliance"
 ```
+
+RATIONALE:
+- Tracking predictions vs. outcomes builds institutional credibility
+- Transparent about both successes and failures
+- Demonstrates analytical rigor
+- Informs future decision analysis
 ```
 
 ### Prompt 11.2: Create Stakeholder Communication Framework
@@ -562,52 +718,84 @@ Build system for transparent communication with media, council, civil society.
 
 DELIVERABLES:
 1. `src/api/v1/routes/public/notifications.py`
-   - Automated alerts: "Risk score moved from 65 to 70 (High)"
-   - Alerts: "Fiscal cliff year now FY2029 (was FY2031)"
-   - Alerts: "Pension funded ratio dropped to 60%"
+   - Automated alerts when key metrics change:
+     * Risk score increases (e.g., 65 → 70)
+     * Fiscal cliff year moves closer (e.g., FY2031 → FY2029)
+     * Pension funded ratio drops below threshold
+   - Alert format: brief summary + link to details
+
 2. `scripts/communications/email_alerts.py`
-   - Quarterly email to subscribers
-   - Summary: risk score trend, projection updates, data refreshes
+   - Quarterly email to subscriber list
+   - Summary: risk score trend, new data entered, projection updates
+   - Links: latest reports, dashboards, source documents
+   - Unsubscribe option (respect privacy)
+
 3. `scripts/communications/press_release_template.py`
-   - Auto-generate press release from quarterly data updates
+   - Auto-generate press release from quarterly data
    - Template: "IBCo Vallejo Fiscal Analysis: Q3 2024 Update"
+   - Include: risk score, key findings, fiscal cliff analysis, quote from methodology
+   - Ready for media distribution
+
 4. `src/api/v1/routes/admin/stakeholder_list.py`
-   - Manage email list (journalists, council members, civil society groups)
-   - One-way notification system (no responses to system email)
+   - Manage email subscriber list
+   - Categories: media, council, civil society, researchers
+   - One-way notification (no replies to system email)
+   - Privacy-respecting (GDPR compliant, easy unsubscribe)
 
 COMMUNICATION PHILOSOPHY:
-- Non-partisan information, not advocacy
+- Strictly non-partisan: data only, no policy advocacy
 - Let data speak for itself
-- Separate: facts (risk scores, data) from interpretation (implications)
+- Separate facts (risk scores) from interpretation (implications)
+- Transparent about methodology and limitations
+- Responsive to questions but not prescriptive about solutions
 ```
 
 ### Prompt 11.3: Build SLAPP Defense & Legal Infrastructure
 
 ```
-Implement legal defense automation for cease-and-desist, defamation, and harassment.
+Implement legal defense automation for cease-and-desist, defamation claims, and harassment.
 
 DELIVERABLES:
-1. `docs/LEGAL_DEFENSE_PLAYBOOK.md` (already exists, integrate into system)
-   - Anti-SLAPP motion templates by state/threat type
+1. `docs/LEGAL_DEFENSE_PLAYBOOK.md` integration
+   - Anti-SLAPP motion templates (already exist in docs/legal/)
+   - Integrate into system: auto-generate responses
    - EFF/ACLU contact protocols
    - Media liability insurance documentation
+
 2. `src/api/v1/routes/admin/legal_incidents.py`
-   - Log: cease-and-desist letters, threats, legal actions
-   - Track: response sent, resolution
+   - POST /api/v1/admin/legal-incident: log cease-and-desist, threat, lawsuit
+   - Track: incident type, sender, date received, response sent, resolution
+   - Immutable log (preserved for discovery)
+
 3. `scripts/legal/generate_anti_slapp_response.py`
-   - Template-based cease-and-desist response
-   - Auto-cite: data sources, methodology, disclaimers
-   - Ready to send to legal counsel
+   - Template-based cease-and-desist response generator
+   - Auto-cite: data sources (CAFR page X, CalPERS document Y)
+   - Auto-cite: methodology (transparent risk scoring, open source code)
+   - Auto-cite: disclaimers (independent analysis, not predictions)
+   - Output: draft response ready for legal counsel review
+
 4. `src/database/models/legal.py` (LegalIncident, LegalResponse models)
-   - Immutable log of all legal incidents
-   - Preserved for potential discovery proceedings
+   - Track all legal threats
+   - Link to affected data points (show provenance)
+   - Store response templates and outcomes
+   - Public log (transparency about suppression attempts)
+
 5. `scripts/reports/legal_incident_report.py`
-   - Summary: all legal incidents to date
-   - Response accuracy, timeline, outcomes
+   - Public transparency report: all legal incidents
+   - Show: threat type, IBCo response, outcome
+   - Demonstrate: suppression attempts fail
 
 INTEGRATION WITH DEAD-MAN'S SWITCH:
-- If legal action detected: automatically publish full dataset + legal documents
-- Ensures: suppression attempts backfire
+- If legal incident logged: reduce dead-man's timer to 7 days
+- If lawsuit filed: immediately publish full dataset + legal documents
+- Ensures: suppression attempts backfire (Streisand Effect)
+- Message: "Threatening IBCo triggers immediate data publication"
+
+RATIONALE:
+- Proactive legal defense infrastructure
+- Automated response generation saves legal fees
+- Public transparency about suppression attempts
+- Dead-man's switch integration makes suppression counterproductive
 ```
 
 ---
@@ -617,161 +805,212 @@ INTEGRATION WITH DEAD-MAN'S SWITCH:
 ### Prompt 12.1: Multi-City Architecture & Data Federation
 
 ```
-Extend from Vallejo to 2nd dysfunctional CA city (Stockton or Oakland), then state network.
+Prepare infrastructure for expansion from Vallejo to additional CA cities.
+
+CONTEXT: Database schema already supports multiple cities. Phase 12 activates multi-city
+features and creates onboarding workflow.
 
 DELIVERABLES:
-1. `src/database/models/multi_city_federation.py`
-   - Multi-tenant city support (already in schema, activate it)
-   - City configuration: fiscal year end, local CAFR source, pension plans
-2. `scripts/setup/onboard_new_city.py`
-   - Template: add new city to system
-   - Configure: data sources, fiscal year, pension plans, peers
-3. `src/data_pipeline/city_configs/`
-   - `vallejo.yaml` - Vallejo configuration
-   - `stockton.yaml` - Stockton configuration (FY2024+)
-   - `oakland.yaml` - Oakland configuration (optional expansion)
-4. `src/api/v1/routes/cities.py` (extend)
-   - GET /api/v1/cities: returns list of all tracked cities
+1. `scripts/setup/onboard_new_city.py`
+   - Wizard: add new city to system
+   - Prompts: city name, county, population, fiscal year end, CAFR source, pension plans
+   - Creates: City record, first FiscalYear, data source placeholders
+   - Generates: CSV templates for manual entry
+
+2. `src/data_pipeline/city_configs/`
+   - `vallejo.yaml` - Vallejo configuration (CAFR URL, pension plans, etc.)
+   - `stockton.yaml` - Template for Stockton (second city)
+   - `oakland.yaml` - Template for Oakland (optional)
+   - Used by: import scripts, validation, reporting
+
+3. `src/api/v1/routes/cities.py` enhancements
+   - GET /api/v1/cities: list all tracked cities
    - GET /api/v1/cities/{city_id}/... (all endpoints work for any city)
-5. `src/dashboard/metabase/dashboards/state_overview.json`
-   - Compare all CA cities tracked
+   - Comparative endpoints: GET /api/v1/cities/compare?city_ids=1,2,3
+
+4. `src/dashboard/metabase/dashboards/state_overview.json`
+   - Compare all tracked CA cities
    - State-wide risk trends
    - Identify: which cities approaching fiscal crisis?
+   - Ranking: worst to best fiscal health
 
-SEQUENCING (strict validation per tier):
-- Wave Two: Perfect Vallejo (nail one city)
-- FY2025: Add Stockton (second city validates multi-city logic)
-- FY2026: Expand to 3-5 CA cities
-- FY2027: Deploy state network (ibco-ca.us covers entire CA)
-- FY2028+: Expand to other states (IBDo federal system)
+EXPANSION SEQUENCING:
+- Wave Two: Perfect Vallejo (nail one city completely)
+- Future: Add Stockton as second city (validates multi-city logic)
+- Future: Expand to 3-5 cities (Riverside, San Bernardino, Oakland)
+- Future: CA state network (ibco-ca.us covers all at-risk CA cities)
+- Future: Other states (IBDo federal system)
+
+MANUAL ENTRY SCALING:
+- Vallejo alone: 5-10 hours/year
+- 5 cities: 25-50 hours/year (feasible for one dedicated volunteer)
+- 20 cities: 100-200 hours/year (requires team or automation)
 ```
 
 ### Prompt 12.2: Research Partner Integration
 
 ```
-Build secure data sharing for university researchers, fiscal policy groups.
+Build secure data sharing for university researchers and fiscal policy organizations.
 
 DELIVERABLES:
 1. `src/api/v1/routes/research/data_exports.py`
-   - POST /api/v1/research/export-request: researchers request data
-   - Auto-generate: CSV/JSON export of requested dataset
-   - Track: who downloaded what, when, for what purpose
-2. `src/api/auth/research_tokens.py`
-   - Special token tier: "researcher"
-   - Higher rate limit (10k requests/hour)
-   - Access to: raw extracts, historical comparisons
-3. `scripts/research/manage_research_partnerships.py`
-   - Track: partner institutions, Principal Investigators, use agreements
-   - Generate: research data sharing agreements (template)
-4. `docs/RESEARCH_COLLABORATION.md`
-   - How to request access
-   - Data sharing policies
-   - Citation requirements
+   - POST /api/v1/research/export-request: researcher requests dataset
+   - Formats: CSV, JSON, Excel
+   - Track: who downloaded what, when, for what research purpose
 
-RESEARCH PARTNERSHIPS:
+2. `src/api/auth/research_tokens.py`
+   - Special researcher token tier
+   - Rate limit: 10,000 requests/hour (vs. 1000 for standard tier)
+   - Access: bulk export endpoints, historical raw data
+   - Requires: institutional affiliation, research purpose, data use agreement
+
+3. `scripts/research/manage_research_partnerships.py`
+   - Track: partner institutions, Principal Investigators, active projects
+   - Generate: data sharing agreements (template)
+   - Monitor: token usage, citation compliance
+
+4. `docs/RESEARCH_COLLABORATION.md`
+   - How to request research access
+   - Data sharing policies (open data, attribution required)
+   - Citation requirements (how to cite IBCo data)
+   - Example use cases (published research using IBCo data)
+
+TARGET RESEARCH PARTNERS:
 - UC Berkeley Institute of Government Studies
 - SF State Urban Analysis Institute
+- Stanford Hoover Institution
 - Lincoln Institute of Land Policy
-- Community Initiatives (fiscal sponsorship partner)
+- Mercatus Center
+- Community Initiatives (fiscal sponsorship)
 ```
 
 ### Prompt 12.3: Funding & Governance Model
 
 ```
-Implement fiscal sustainability model and governance structure.
+Implement fiscal sustainability and governance structure.
 
 DELIVERABLES:
 1. `docs/GOVERNANCE_MODEL.md`
-   - Decision-making structure (non-partisan board)
+   - Decision-making structure: non-partisan board
    - Advisory council: civic leaders, researchers, civil society
-   - Public comment periods on major changes
+   - Public comment periods for major methodology changes
+   - Conflict of interest policies
+
 2. `src/api/v1/routes/admin/funding_tracker.py`
-   - Public disclosure: funding sources, amounts, restrictions
-   - Transparency: who supports IBCo? (philanthropies, municipal grants)
+   - Public endpoint: GET /api/v1/funding
+   - Disclose: all funding sources, amounts, any restrictions
+   - Transparency: who supports IBCo financially?
+   - Updated annually
+
 3. `scripts/reports/annual_transparency_report.py`
-   - Funding: sources and allocation
-   - Impact: cities using system, decisions informed by data
-   - Future: sustainability plan, fundraising targets
+   - Annual report: funding sources and allocation
+   - Impact metrics: cities tracked, decisions informed, media coverage
+   - Financial sustainability: current funding vs. operating costs
+   - Future plan: fundraising targets, growth strategy
+
 4. `docs/SUSTAINABILITY_PLAN.md`
-   - Revenue model: philanthropic grants (fiscal sponsorship)
-   - Cost structure: hosting ($X/month), development, operations
+   - Operating costs: hosting ($50-100/month), development (volunteer + occasional contract)
+   - Revenue model: philanthropic grants (fiscal sponsorship via Community Initiatives)
    - Growth plan: when can system self-sustain?
+   - Endowment goal: $500K-$1M for perpetual operation
 
 FUNDING STRATEGY:
-- FY2024-2025: Grant funding (Gates, Simons, philanthropic)
-- FY2025-2026: Municipal contributions (Vallejo, etc.)
-- FY2026+: Membership model (cities pay sliding scale based on budget)
-- Governance: Nonprofit board, fiscal sponsorship through Community Initiatives
-```
-
----
-
-## WAVE TWO SUMMARY
-
-**Timeline: 6 months**
-
-```
-Month 1-2: Data Reality (Phase 7)
-  - Load 10 years Vallejo data
-  - Validate end-to-end
-  - Confirm risk scores make sense
-
-Month 2-3: Production Hardening (Phase 8)
-  - Monitoring, alerting, dead-man's switch
-  - Rate limiting, backup strategy
-  - Security hardening
-
-Month 3-4: Operational Workflows (Phase 9)
-  - Automated data refresh
-  - Data lineage tracking
-  - Manual validation workflow
-
-Month 4-5: Public Interface (Phase 10)
-  - Dashboards, reports, narratives
-  - API documentation
-  - Public communication
-
-Month 5-6: Community & Expansion (Phase 11-12)
-  - Decision logging, stakeholder comms
-  - Legal defense infrastructure
-  - Multi-city architecture readiness
-
-Deliverable: Production-ready civic accountability system deployed at ibco-ca.us
+- Initial: Volunteer-run, minimal costs (hosting only)
+- Early stage: Small grants (local foundations, civic tech funds)
+- Growth: Larger grants (Open Philanthropy, Arnold Ventures, etc.)
+- Sustainable: Municipal subscriptions (cities pay sliding scale for access)
+- Endowment: Major donor or foundation creates permanent fund
 ```
 
 ---
 
 ## EXECUTION PRIORITY
 
-**Critical Path (do first):**
-1. ✅ Prompt 7.1: Load test data (unblocks everything)
-2. ✅ Prompt 7.2-7.3: CAFR + CalPERS extraction
-3. ✅ Prompt 9.2: Data lineage (forensic accountability)
-4. ✅ Prompt 10.1: Dashboard (public interface)
+**CRITICAL PATH (do these first):**
+1. **Prompt 7.1: Database + Manual Entry** - UNBLOCKS EVERYTHING ELSE
+   - Run Alembic migration
+   - Manually enter Vallejo FY2020-2024 (5 years)
+   - Calculate risk scores, generate projections
+   - Verify end-to-end system works
 
-**Important (do next):**
-5. Prompt 9.1: Data refresh automation
-6. Prompt 10.2-10.3: Reports & API docs
-7. Prompt 8.1-8.3: Production hardening
+2. **Prompt 9.2: Data Lineage** - Legal defense backbone
+   - Track every data point to source document
+   - Forensic accountability for all claims
+   - Essential for legal defense
 
-**Nice-to-have (if time):**
-8. Prompt 11.1-11.3: Community features
-9. Prompt 12.1-12.3: Expansion & sustainability
+3. **Prompt 7.4: Data Quality Dashboard** - Validate before public release
+   - Ensure manual entry is error-free
+   - Build confidence in data accuracy
+
+4. **Prompt 10.1: Metabase Dashboards** - Public interface
+   - Visualize Vallejo fiscal data
+   - Make complex data accessible
+
+**HIGH PRIORITY (do these next):**
+5. **Prompt 8.3: Dead-Man's Switch** - Insurance against suppression
+6. **Prompt 10.2: Public Reports** - Narrative communication
+7. **Prompt 10.3: API Documentation** - Enable researcher access
+8. **Prompt 8.1: Monitoring** - Production reliability
+9. **Prompt 9.3: Manual Review Workflow** - Quality assurance
+
+**MEDIUM PRIORITY (valuable but not urgent):**
+10. Prompt 8.2: Rate Limiting & Auth
+11. Prompt 11.2: Stakeholder Communications
+12. Prompt 11.3: Legal Defense Infrastructure
+13. Prompt 11.1: Decision Logging
+
+**LOWER PRIORITY (nice-to-have):**
+14. Prompt 9.1: Refresh Orchestration (until routine updates needed)
+15. Prompt 12.1: Multi-City Architecture (until ready to expand)
+16. Prompt 12.2: Research Partnerships (once data proven valuable)
+17. Prompt 12.3: Funding & Governance (once operational)
+
+**SKIP FOR NOW (optional future enhancements):**
+- Prompt 7.2: CAFR PDF Extraction (manual entry works great)
+- Prompt 7.3: CalPERS Scraping (manual entry works great)
 
 ---
 
 ## SUCCESS METRICS
 
-By end of Wave Two:
-- ✅ Vallejo data loaded, validated, publicly queryable
-- ✅ Risk scores calculated for 10 years (FY2015-2024)
-- ✅ 10-year projections generated for base/optimistic/pessimistic scenarios
-- ✅ Fiscal cliff year identified (likely FY2029-2030 for Vallejo)
-- ✅ Dashboard live at ibco-ca.us showing trends
-- ✅ API documented and rate-limited
-- ✅ Data refresh automated (monthly)
-- ✅ Dead-man's switch configured
-- ✅ Legal defense infrastructure in place
-- ✅ Media + stakeholders briefed on findings
+Wave Two is successful when:
+- ✅ Vallejo data loaded (FY2020-2024 minimum, all manually entered and validated)
+- ✅ Risk scores calculated for all loaded years
+- ✅ 10-year projections generated (base/optimistic/pessimistic scenarios)
+- ✅ Fiscal cliff year identified with confidence intervals
+- ✅ Dashboard live showing fiscal trends and risk progression
+- ✅ API documented and publicly accessible
+- ✅ Data lineage complete (every metric traceable to source document)
+- ✅ Dead-man's switch configured and tested
+- ✅ Legal defense infrastructure in place (response templates, incident logging)
+- ✅ Public reports published (fiscal summary, risk narrative)
 
-**Outcome:** Vallejo (and California) have transparent fiscal accountability infrastructure that will outlast any political cycle.
+**Outcome:** Vallejo has transparent, defensible fiscal accountability system that:
+- Survives legal challenges (complete data provenance)
+- Survives operator suppression (dead-man's switch)
+- Informs public discourse with non-partisan data
+- Outlasts any political cycle or individual operator
+
+---
+
+## PHILOSOPHY: MANUAL ENTRY ADVANTAGE
+
+**Why manual entry beats automation for Wave Two:**
+
+1. **Speed**: 1-2 hours per year vs. 40+ hours to build extractor
+2. **Accuracy**: 100% accurate (human-verified) vs. 85-95% (requires review)
+3. **Defensibility**: Complete provenance (transcriber + reviewer + source page)
+4. **Simplicity**: CSV import tools already built and tested
+5. **Reliability**: No OCR errors, format changes, or scraper breakage
+6. **Flexibility**: Can handle any format (old CAFRs, scanned PDFs, etc.)
+
+**When to build automation:**
+- Scaling to 20+ cities (manual entry becomes bottleneck)
+- Routine monthly updates (automation saves recurring effort)
+- Historical backfill (extracting 10+ years per city)
+
+**For Vallejo alone:** Manual entry is superior in every way.
+
+---
+
+**Ready to begin Wave Two?** Start with Prompt 7.1 (Database + Manual Entry).
