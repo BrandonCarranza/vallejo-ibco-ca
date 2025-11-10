@@ -6,7 +6,7 @@ Organized by domain:
 - financial: Revenues, expenditures, fund balances
 - pensions: Pension plans, contributions, projections, OPEB
 - risk: Risk scores, indicators, trends, benchmarks
-- projections: Financial projections (to be implemented)
+- projections: Financial projections, scenarios, fiscal cliff analysis
 """
 
 # Core models
@@ -39,6 +39,14 @@ from src.database.models.risk import (
     RiskTrend,
 )
 
+# Projection models
+from src.database.models.projections import (
+    FiscalCliffAnalysis,
+    FinancialProjection,
+    ProjectionScenario,
+    ScenarioAssumption,
+)
+
 __all__ = [
     # Core models
     "City",
@@ -63,4 +71,9 @@ __all__ = [
     "RiskIndicatorScore",
     "RiskTrend",
     "BenchmarkComparison",
+    # Projection models
+    "ProjectionScenario",
+    "FinancialProjection",
+    "ScenarioAssumption",
+    "FiscalCliffAnalysis",
 ]
