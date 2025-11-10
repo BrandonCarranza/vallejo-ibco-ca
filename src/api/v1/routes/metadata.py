@@ -1,71 +1,128 @@
 """
-Metadata endpoints.
+Data metadata and provenance endpoints.
 
-Endpoints for data sources, data lineage, and data quality.
+Transparency about data sources and quality.
 """
-from fastapi import APIRouter
+from typing import List, Optional
+from datetime import datetime
 
-router = APIRouter()
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from sqlalchemy import desc
+
+from src.api.dependencies import get_db
+from src.api.v1.schemas.common import DataSourceResponse, DataLineageResponse
+from src.database.models.core import DataSource, DataLineage
+
+router = APIRouter(prefix="/metadata")
 
 
-@router.get("/metadata/sources")
-async def list_data_sources():
+@router.get("/sources", response_model=List[DataSourceResponse])
+async def list_data_sources(
+    source_type: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
     """
     List all data sources.
 
-    Returns:
-        Data sources with reliability ratings, types, and URLs.
+    Provides transparency about where our data comes from.
+
+    Query Parameters:
+    - source_type: Filter by type (CAFR, CalPERS, StateController, Manual)
     """
-    # TODO: Implement data source listing
-    return {
-        "sources": [],
-        "count": 0,
-        "message": "Endpoint not yet implemented"
-    }
+    query = db.query(DataSource)
+
+    if source_type:
+        query = query.filter(DataSource.source_type == source_type)
+
+    sources = query.order_by(DataSource.name).all()
+
+    return sources
 
 
-@router.get("/metadata/lineage")
-async def get_data_lineage(
-    table_name: str | None = None,
-    record_id: int | None = None
+@router.get("/sources/{source_id}", response_model=DataSourceResponse)
+async def get_data_source(
+    source_id: int,
+    db: Session = Depends(get_db)
 ):
     """
-    Get data lineage information.
-
-    Args:
-        table_name: Optional table name filter
-        record_id: Optional record ID filter
-
-    Returns:
-        Data lineage records showing source documents, extraction methods,
-        validation status, etc.
-
-    Note:
-        Data lineage tracks the provenance of every data point in the system.
+    Get details about a specific data source.
     """
-    # TODO: Implement data lineage retrieval
-    return {
-        "table_name": table_name,
-        "record_id": record_id,
-        "lineage": [],
-        "message": "Endpoint not yet implemented"
+    source = db.query(DataSource).filter(DataSource.id == source_id).first()
+
+    if not source:
+        raise HTTPException(status_code=404, detail="Data source not found")
+
+    return source
+
+
+@router.get("/lineage", response_model=List[DataLineageResponse])
+async def get_data_lineage(
+    table_name: str,
+    record_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get data lineage for a specific record.
+
+    Shows where a piece of data came from, how it was extracted, and validation status.
+
+    Query Parameters:
+    - table_name: The table name (e.g., "revenues", "pension_plans")
+    - record_id: The record ID
+
+    This endpoint enables full transparency and traceability.
+    """
+    lineage = db.query(DataLineage).filter(
+        DataLineage.table_name == table_name,
+        DataLineage.record_id == record_id
+    ).order_by(desc(DataLineage.extracted_at)).all()
+
+    if not lineage:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No lineage found for {table_name} record {record_id}"
+        )
+
+    return lineage
+
+
+@router.get("/data-quality")
+async def get_data_quality_summary(
+    db: Session = Depends(get_db)
+):
+    """
+    Overall data quality summary.
+
+    Reports on:
+    - Data completeness
+    - Validation status
+    - Last update times
+    - Known issues
+    """
+    from src.database.models.core import FiscalYear
+
+    # Get fiscal years with completeness flags
+    fiscal_years = db.query(FiscalYear).order_by(desc(FiscalYear.year)).limit(10).all()
+
+    summary = {
+        "last_updated": datetime.utcnow().isoformat(),
+        "fiscal_years_available": len(fiscal_years),
+        "recent_years": []
     }
 
+    for fy in fiscal_years:
+        summary["recent_years"].append({
+            "year": fy.year,
+            "city": fy.city.name,
+            "data_completeness": {
+                "revenues": fy.revenues_complete,
+                "expenditures": fy.expenditures_complete,
+                "pensions": fy.pension_data_complete,
+            },
+            "data_quality_score": fy.data_quality_score,
+            "cafr_available": fy.cafr_available,
+            "cafr_url": fy.cafr_url,
+        })
 
-@router.get("/metadata/data-quality")
-async def get_data_quality(city_id: int | None = None):
-    """
-    Get data quality metrics.
-
-    Args:
-        city_id: Optional city ID filter
-
-    Returns:
-        Data completeness, validation status, last update dates, etc.
-    """
-    # TODO: Implement data quality metrics
-    return {
-        "city_id": city_id,
-        "quality_metrics": None,
-        "message": "Endpoint not yet implemented"
-    }
+    return summary
