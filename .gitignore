@@ -205,3 +205,118 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# ============================================================================
+# IBCo Vallejo Console Project-Specific
+# ============================================================================
+
+# Data directories - exclude raw and processed data, keep samples
+data/raw/
+data/processed/
+data/archive/
+# Keep data/samples/ committed to git for testing
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.backup
+*.bak
+backup/
+backups/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# IDE-specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker volumes and data
+docker-volumes/
+postgres_data/
+redis_data/
+
+# Metabase data
+metabase_data/
+metabase.db/
+
+# pgAdmin data
+pgadmin_data/
+
+# Alembic
+# Keep migrations in version control, but exclude any generated files
+src/database/migrations/versions/*.pyc
+
+# Generated reports
+reports/generated/
+exports/
+
+# Downloaded PDFs and source documents (large files)
+*.pdf
+# Exception: keep sample PDFs in data/samples/
+!data/samples/**/*.pdf
+
+# Large data files
+*.xlsx
+*.xls
+*.csv
+# Exception: keep sample data files
+!data/samples/**/*.xlsx
+!data/samples/**/*.xls
+!data/samples/**/*.csv
+
+# API documentation (auto-generated)
+docs/api/generated/
+
+# Monitoring and logs
+logs/
+*.log.*
+celerybeat-schedule.*
+
+# Python optimization
+.Python
+__pypackages__/
+
+# Testing
+.tox/
+.nox/
+.coverage.*
+htmlcov/
+.pytest_cache/
+test-results/
+
+# Type checking
+.mypy_cache/
+.pytype/
+.pyre/
+
+# Local development overrides
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Jupyter notebook outputs (keep notebooks, exclude outputs)
+*.ipynb_checkpoints/
+
+# Pre-commit hooks
+.pre-commit-config.yaml.backup

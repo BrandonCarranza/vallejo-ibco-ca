@@ -1,0 +1,229 @@
+[tool.poetry]
+name = "ibco-vallejo-console"
+version = "0.1.0"
+description = "Independent Budget & Civic Oversight - Vallejo Municipal Fiscal Transparency Platform"
+authors = ["IBCo Contributors"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/ibco-ca/vallejo-ibco-ca"
+repository = "https://github.com/ibco-ca/vallejo-ibco-ca"
+documentation = "https://docs.ibco-ca.us"
+keywords = ["civic-tech", "municipal-finance", "transparency", "open-data"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Sociology :: History",
+    "Topic :: Office/Business :: Financial",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+# API Framework
+fastapi = "^0.109.0"
+uvicorn = {extras = ["standard"], version = "^0.27.0"}
+python-multipart = "^0.0.6"
+
+# Database
+sqlalchemy = "^2.0.25"
+alembic = "^1.13.1"
+psycopg2-binary = "^2.9.9"
+asyncpg = "^0.29.0"
+
+# Task Queue
+redis = "^5.0.1"
+celery = "^5.3.6"
+
+# Data Processing
+pandas = "^2.2.0"
+numpy = "^1.26.3"
+openpyxl = "^3.1.2"
+
+# Validation & Configuration
+pydantic = "^2.5.3"
+pydantic-settings = "^2.1.0"
+python-dotenv = "^1.0.0"
+
+# HTTP & Web Scraping
+requests = "^2.31.0"
+beautifulsoup4 = "^4.12.3"
+httpx = "^0.26.0"
+
+# PDF Processing
+pdfplumber = "^0.10.3"
+tabula-py = "^2.9.0"
+pypdf2 = "^3.0.1"
+
+# Date/Time Handling
+python-dateutil = "^2.8.2"
+
+# Logging & Monitoring
+structlog = "^24.1.0"
+python-json-logger = "^2.0.7"
+
+# Data Validation
+jsonschema = "^4.20.0"
+cerberus = "^1.3.5"
+
+[tool.poetry.group.dev.dependencies]
+# Testing
+pytest = "^8.0.0"
+pytest-asyncio = "^0.23.3"
+pytest-cov = "^4.1.0"
+pytest-mock = "^3.12.0"
+faker = "^22.0.0"
+
+# Code Quality
+black = "^24.1.0"
+isort = "^5.13.2"
+flake8 = "^7.0.0"
+flake8-docstrings = "^1.7.0"
+flake8-bugbear = "^24.1.0"
+mypy = "^1.8.0"
+pylint = "^3.0.3"
+
+# Type Stubs
+types-requests = "^2.31.0"
+types-python-dateutil = "^2.8.19"
+sqlalchemy-stubs = "^0.4"
+
+# Documentation
+mkdocs = "^1.5.3"
+mkdocs-material = "^9.5.4"
+mkdocstrings = {extras = ["python"], version = "^0.24.0"}
+
+# Development Tools
+ipython = "^8.20.0"
+ipdb = "^0.13.13"
+pre-commit = "^3.6.0"
+
+[tool.poetry.group.data.dependencies]
+# Data Science & Analysis
+jupyter = "^1.0.0"
+matplotlib = "^3.8.2"
+seaborn = "^0.13.1"
+plotly = "^5.18.0"
+scipy = "^1.12.0"
+statsmodels = "^0.14.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+# Black Configuration
+[tool.black]
+line-length = 100
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # Directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+  | migrations
+)/
+'''
+
+# isort Configuration
+[tool.isort]
+profile = "black"
+line_length = 100
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+skip_glob = ["*/migrations/*"]
+
+# pytest Configuration
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=src",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "data_quality: marks tests for data quality validation",
+]
+
+# Coverage Configuration
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/migrations/*",
+    "*/__init__.py",
+    "*/config/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+
+# MyPy Configuration
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_calls = false
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+follow_imports = "normal"
+ignore_missing_imports = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+# Pylint Configuration
+[tool.pylint.messages_control]
+disable = [
+    "C0111",  # missing-docstring
+    "C0103",  # invalid-name
+    "R0903",  # too-few-public-methods
+    "R0913",  # too-many-arguments
+    "W0212",  # protected-access
+]
+
+[tool.pylint.format]
+max-line-length = 100
+
+[tool.pylint.design]
+max-args = 7
+max-attributes = 10

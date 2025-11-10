@@ -1,0 +1,207 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database with PostGIS extension
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: ibco-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ibco}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ibco_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-ibco_vallejo}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/setup/init_db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ibco-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ibco}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis for caching and task queue
+  redis:
+    image: redis:7-alpine
+    container_name: ibco-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-ibco_redis_dev}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ibco-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # Metabase for data visualization and dashboards
+  metabase:
+    image: metabase/metabase:v0.48.3
+    container_name: ibco-metabase
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: ${METABASE_DB:-metabase}
+      MB_DB_PORT: 5432
+      MB_DB_USER: ${POSTGRES_USER:-ibco}
+      MB_DB_PASS: ${POSTGRES_PASSWORD:-ibco_dev_password}
+      MB_DB_HOST: postgres
+      MB_ENCRYPTION_SECRET_KEY: ${METABASE_ENCRYPTION_KEY:-change_this_in_production}
+    ports:
+      - "${METABASE_PORT:-3000}:3000"
+    volumes:
+      - metabase_data:/metabase-data
+    networks:
+      - ibco-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    restart: unless-stopped
+
+  # pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: ibco-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@ibco-ca.us}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin_dev_password}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./infrastructure/pgadmin/servers.json:/pgadmin4/servers.json
+    networks:
+      - ibco-network
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # FastAPI application (development)
+  api:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.dev
+    container_name: ibco-api
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ibco}:${POSTGRES_PASSWORD:-ibco_dev_password}@postgres:5432/${POSTGRES_DB:-ibco_vallejo}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-ibco_redis_dev}@redis:6379/0
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./data:/app/data
+    networks:
+      - ibco-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - full
+
+  # Celery worker for background tasks
+  celery-worker:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.worker
+    container_name: ibco-celery-worker
+    command: celery -A src.data_pipeline.orchestration.tasks worker --loglevel=info
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ibco}:${POSTGRES_PASSWORD:-ibco_dev_password}@postgres:5432/${POSTGRES_DB:-ibco_vallejo}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-ibco_redis_dev}@redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-ibco_redis_dev}@redis:6379/1
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-ibco_redis_dev}@redis:6379/2
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data
+    networks:
+      - ibco-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - full
+
+  # Celery beat for scheduled tasks
+  celery-beat:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.worker
+    container_name: ibco-celery-beat
+    command: celery -A src.data_pipeline.orchestration.tasks beat --loglevel=info
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ibco}:${POSTGRES_PASSWORD:-ibco_dev_password}@postgres:5432/${POSTGRES_DB:-ibco_vallejo}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-ibco_redis_dev}@redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-ibco_redis_dev}@redis:6379/1
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-ibco_redis_dev}@redis:6379/2
+    volumes:
+      - ./src:/app/src
+    networks:
+      - ibco-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - full
+
+  # Flower for Celery monitoring
+  flower:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.worker
+    container_name: ibco-flower
+    command: celery -A src.data_pipeline.orchestration.tasks flower --port=5555
+    environment:
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-ibco_redis_dev}@redis:6379/1
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-ibco_redis_dev}@redis:6379/2
+      FLOWER_BASIC_AUTH: ${FLOWER_USER:-admin}:${FLOWER_PASSWORD:-admin}
+    ports:
+      - "${FLOWER_PORT:-5555}:5555"
+    networks:
+      - ibco-network
+    depends_on:
+      - redis
+    restart: unless-stopped
+    profiles:
+      - full
+
+networks:
+  ibco-network:
+    driver: bridge
+    name: ibco-network
+
+volumes:
+  postgres_data:
+    name: ibco-postgres-data
+  redis_data:
+    name: ibco-redis-data
+  metabase_data:
+    name: ibco-metabase-data
+  pgadmin_data:
+    name: ibco-pgadmin-data
