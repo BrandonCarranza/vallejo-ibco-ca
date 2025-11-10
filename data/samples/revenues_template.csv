@@ -1,0 +1,11 @@
+category,fund_type,budget_amount,actual_amount,notes
+Property Taxes,General,25000000,26500000,Secured property taxes
+Sales Taxes,General,18000000,17200000,Lower than budgeted
+Business License Fees,General,1500000,1650000,
+State Subventions,General,5000000,5100000,
+Franchise Fees,General,2000000,2050000,
+Charges for Services,General,8000000,8200000,
+Fines and Forfeitures,General,1000000,950000,Below budget
+Investment Income,General,500000,750000,Higher interest rates
+Transfers In,General,3000000,3000000,
+Other Revenues,General,2000000,1800000,
