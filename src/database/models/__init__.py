@@ -5,7 +5,7 @@ Organized by domain:
 - core: Cities, fiscal years, data sources, data lineage
 - financial: Revenues, expenditures, fund balances
 - pensions: Pension plans, contributions, projections, OPEB
-- risk: Risk scores and indicators (to be implemented)
+- risk: Risk scores, indicators, trends, benchmarks
 - projections: Financial projections (to be implemented)
 """
 
@@ -30,6 +30,15 @@ from src.database.models.pensions import (
     PensionProjection,
 )
 
+# Risk models
+from src.database.models.risk import (
+    BenchmarkComparison,
+    RiskIndicator,
+    RiskIndicatorScore,
+    RiskScore,
+    RiskTrend,
+)
+
 __all__ = [
     # Core models
     "City",
@@ -48,4 +57,10 @@ __all__ = [
     "PensionProjection",
     "OPEBLiability",
     "PensionAssumptionChange",
+    # Risk models
+    "RiskIndicator",
+    "RiskScore",
+    "RiskIndicatorScore",
+    "RiskTrend",
+    "BenchmarkComparison",
 ]
