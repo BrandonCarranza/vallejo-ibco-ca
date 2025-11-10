@@ -1,0 +1,44 @@
+[flake8]
+# Maximum line length
+max-line-length = 100
+
+# Errors and warnings to ignore
+# E203: whitespace before ':' (conflicts with Black)
+# E266: too many leading '#' for block comment
+# E501: line too long (handled by Black)
+# W503: line break before binary operator (conflicts with Black)
+extend-ignore = E203, E266, E501, W503
+
+# Directories to exclude from linting
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    env,
+    build,
+    dist,
+    migrations,
+    .eggs,
+    *.egg-info,
+    .tox,
+    .mypy_cache,
+    .pytest_cache,
+    node_modules
+
+# Maximum cyclomatic complexity
+max-complexity = 10
+
+# Enable specific flake8 plugins
+# docstring-convention = google
+per-file-ignores =
+    # Ignore import order in __init__.py files
+    __init__.py:F401,F403
+    # Ignore unused imports in conftest.py
+    tests/conftest.py:F401
+    # Allow print statements in scripts
+    scripts/*:T201
+
+# Import order style
+import-order-style = google
+application-import-names = src
