@@ -1,0 +1,13 @@
+category,department,fund_type,budget_amount,actual_amount,notes
+Police Salaries,Police,General,15000000,14800000,
+Fire Salaries,Fire,General,12000000,12100000,Slightly over budget
+General Government Salaries,General Government,General,8000000,7900000,
+Public Works Salaries,Public Works,General,6000000,6050000,
+Pension Contributions,General Government,General,20000000,22000000,Higher than budgeted
+OPEB Contributions,General Government,General,2000000,2000000,
+Health Benefits,General Government,General,8000000,8200000,
+Workers Compensation,General Government,General,3000000,3100000,
+Operating Supplies,Various,General,2000000,1900000,
+Professional Services,Various,General,3000000,2800000,
+Utilities,Various,General,2000000,2100000,
+Transfers Out,General Government,General,5000000,5000000,
