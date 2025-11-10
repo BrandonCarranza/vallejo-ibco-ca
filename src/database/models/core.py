@@ -257,4 +257,6 @@ class DataLineage(Base, AuditMixin):
 # and PensionAssumptionChange are defined in models/pensions.py
 # They are imported via forward reference to avoid circular imports.
 
-# RiskScore will be implemented in models/risk.py when we implement risk scoring.
+# Note: RiskScore, RiskIndicator, RiskIndicatorScore, RiskTrend, and BenchmarkComparison
+# are defined in models/risk.py
+# They are imported via forward reference to avoid circular imports.
