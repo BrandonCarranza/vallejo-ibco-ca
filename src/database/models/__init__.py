@@ -4,7 +4,7 @@ Database models for IBCo Vallejo Console.
 Organized by domain:
 - core: Cities, fiscal years, data sources, data lineage
 - financial: Revenues, expenditures, fund balances
-- pensions: Pension plans and obligations (to be implemented)
+- pensions: Pension plans, contributions, projections, OPEB
 - risk: Risk scores and indicators (to be implemented)
 - projections: Financial projections (to be implemented)
 """
@@ -21,6 +21,15 @@ from src.database.models.financial import (
     RevenueCategory,
 )
 
+# Pension models
+from src.database.models.pensions import (
+    OPEBLiability,
+    PensionAssumptionChange,
+    PensionContribution,
+    PensionPlan,
+    PensionProjection,
+)
+
 __all__ = [
     # Core models
     "City",
@@ -33,4 +42,10 @@ __all__ = [
     "Expenditure",
     "ExpenditureCategory",
     "FundBalance",
+    # Pension models
+    "PensionPlan",
+    "PensionContribution",
+    "PensionProjection",
+    "OPEBLiability",
+    "PensionAssumptionChange",
 ]
