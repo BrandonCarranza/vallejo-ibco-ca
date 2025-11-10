@@ -1,0 +1,26 @@
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install dependencies
+COPY pyproject.toml poetry.lock ./
+RUN pip install poetry && \
+    poetry config virtualenvs.create false && \
+    poetry install --no-dev --no-root
+
+# Copy code
+COPY src/ ./src/
+COPY scripts/ ./scripts/
+
+ENV PYTHONPATH=/app
+ENV ENVIRONMENT=production
+
+# Placeholder for future Celery worker
+# For now, this can be used for background data processing tasks
+CMD ["python", "-c", "import time; print('Worker ready for background tasks'); time.sleep(86400)"]
