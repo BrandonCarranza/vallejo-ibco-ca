@@ -11,7 +11,7 @@ from sqlalchemy import func
 
 from src.database.models.core import FiscalYear
 from src.database.models.financial import Expenditure
-from src.database.models.pension import PensionPlan, PensionProjection
+from src.database.models.pensions import PensionPlan, PensionProjection
 from src.config.logging_config import get_logger
 
 logger = get_logger(__name__)
