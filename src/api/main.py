@@ -14,6 +14,7 @@ import time
 
 from src.config.settings import settings
 from src.config.logging_config import setup_logging, get_logger
+from src.config.observability import setup_observability
 from src.api.v1.routes import health, cities, financial, risk, projections, metadata
 from src.api.v1.routes.admin import quality_dashboard
 
@@ -66,6 +67,9 @@ app.add_middleware(
 
 # Gzip compression
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# Setup observability (metrics, logging, monitoring)
+setup_observability(app)
 
 
 # Request timing middleware
