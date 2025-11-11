@@ -15,6 +15,7 @@ import time
 from src.config.settings import settings
 from src.config.logging_config import setup_logging, get_logger
 from src.api.v1.routes import health, cities, financial, risk, projections, metadata
+from src.api.v1.routes.admin import quality_dashboard
 
 # Setup logging
 setup_logging()
@@ -110,6 +111,9 @@ app.include_router(financial.router, prefix=settings.api_prefix, tags=["Financia
 app.include_router(risk.router, prefix=settings.api_prefix, tags=["Risk Scores"])
 app.include_router(projections.router, prefix=settings.api_prefix, tags=["Projections"])
 app.include_router(metadata.router, prefix=settings.api_prefix, tags=["Metadata"])
+
+# Admin routers (internal use only)
+app.include_router(quality_dashboard.router, prefix=settings.api_prefix, tags=["Admin", "Data Quality"])
 
 
 # Root endpoint
