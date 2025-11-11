@@ -1,0 +1,293 @@
+# Prometheus alerting rules for IBCo Vallejo Console
+#
+# Defines alerts for:
+# - API performance issues
+# - Database problems
+# - Data staleness
+# - System resource exhaustion
+
+groups:
+  # =========================================================================
+  # API Performance Alerts
+  # =========================================================================
+  - name: api_performance
+    interval: 30s
+    rules:
+      - alert: HighAPILatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(ibco_http_request_duration_seconds_bucket[5m])) by (le, endpoint)
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High API latency detected"
+          description: "API endpoint {{ $labels.endpoint }} has p95 latency > 1 second for 5 minutes (current: {{ $value | humanizeDuration }})"
+          runbook_url: "https://docs.ibco-ca.us/runbooks/high-api-latency"
+
+      - alert: CriticalAPILatency
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(ibco_http_request_duration_seconds_bucket[5m])) by (le, endpoint)
+          ) > 2.5
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "Critical API latency detected"
+          description: "API endpoint {{ $labels.endpoint }} has p99 latency > 2.5 seconds for 5 minutes (current: {{ $value | humanizeDuration }})"
+          runbook_url: "https://docs.ibco-ca.us/runbooks/critical-api-latency"
+
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(ibco_http_requests_total{status=~"5.."}[5m])) by (endpoint)
+            /
+            sum(rate(ibco_http_requests_total[5m])) by (endpoint)
+          ) * 100 > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High API error rate"
+          description: "API endpoint {{ $labels.endpoint }} has error rate > 1% for 5 minutes (current: {{ $value | printf \"%.2f\" }}%)"
+          runbook_url: "https://docs.ibco-ca.us/runbooks/high-error-rate"
+
+      - alert: CriticalErrorRate
+        expr: |
+          (
+            sum(rate(ibco_http_requests_total{status=~"5.."}[5m])) by (endpoint)
+            /
+            sum(rate(ibco_http_requests_total[5m])) by (endpoint)
+          ) * 100 > 5.0
+        for: 2m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "Critical API error rate"
+          description: "API endpoint {{ $labels.endpoint }} has error rate > 5% for 2 minutes (current: {{ $value | printf \"%.2f\" }}%)"
+          runbook_url: "https://docs.ibco-ca.us/runbooks/critical-error-rate"
+
+      - alert: APIDown
+        expr: up{job="ibco-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "API is down"
+          description: "IBCo API has been down for more than 1 minute"
+          runbook_url: "https://docs.ibco-ca.us/runbooks/api-down"
+
+  # =========================================================================
+  # Database Alerts
+  # =========================================================================
+  - name: database
+    interval: 30s
+    rules:
+      - alert: DatabaseConnectionPoolExhaustion
+        expr: |
+          (
+            ibco_database_connections_active
+            /
+            ibco_database_connections_pool_size
+          ) * 100 > 90
+        for: 5m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "Database connection pool near capacity"
+          description: "Database connection pool is {{ $value | printf \"%.1f\" }}% full (threshold: 90%)"
+          runbook_url: "https://docs.ibco-ca.us/runbooks/db-pool-exhaustion"
+
+      - alert: SlowDatabaseQueries
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(ibco_database_query_duration_seconds_bucket[5m])) by (le, query_type)
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "Database {{ $labels.query_type }} queries have p95 latency > 1 second (current: {{ $value | humanizeDuration }})"
+          runbook_url: "https://docs.ibco-ca.us/runbooks/slow-db-queries"
+
+      - alert: HighDatabaseErrorRate
+        expr: |
+          rate(ibco_database_queries_total{status="error"}[5m]) > 5
+        for: 2m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "High database error rate"
+          description: "Database is experiencing > 5 errors/minute for {{ $labels.query_type }} queries"
+          runbook_url: "https://docs.ibco-ca.us/runbooks/db-error-rate"
+
+      - alert: DatabaseDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "Database is down"
+          description: "PostgreSQL database has been down for more than 1 minute"
+          runbook_url: "https://docs.ibco-ca.us/runbooks/database-down"
+
+  # =========================================================================
+  # Data Quality & Freshness Alerts
+  # =========================================================================
+  - name: data_quality
+    interval: 1h
+    rules:
+      - alert: StaleDataDetected
+        expr: |
+          (time() - ibco_data_last_update_timestamp) / 86400 > 180
+        for: 1h
+        labels:
+          severity: warning
+          component: data
+        annotations:
+          summary: "Stale data detected"
+          description: "{{ $labels.data_type }} data for {{ $labels.city }} has not been updated in {{ $value | printf \"%.0f\" }} days (threshold: 180 days)"
+          runbook_url: "https://docs.ibco-ca.us/runbooks/stale-data"
+
+      - alert: LowDataQualityScore
+        expr: |
+          ibco_data_quality_score < 95
+        for: 1h
+        labels:
+          severity: warning
+          component: data
+        annotations:
+          summary: "Low data quality score"
+          description: "Data quality score for {{ $labels.city }} FY{{ $labels.fiscal_year }} is {{ $value | printf \"%.1f\" }}% (threshold: 95%)"
+          runbook_url: "https://docs.ibco-ca.us/runbooks/low-quality-score"
+
+      - alert: CriticalDataQualityIssues
+        expr: |
+          ibco_data_quality_critical_issues > 0
+        for: 30m
+        labels:
+          severity: critical
+          component: data
+        annotations:
+          summary: "Critical data quality issues detected"
+          description: "{{ $labels.city }} FY{{ $labels.fiscal_year }} has {{ $value }} critical data quality issues"
+          runbook_url: "https://docs.ibco-ca.us/runbooks/critical-quality-issues"
+
+      - alert: InsufficientFiscalYears
+        expr: |
+          ibco_data_fiscal_years_available{city="Vallejo"} < 3
+        for: 1h
+        labels:
+          severity: warning
+          component: data
+        annotations:
+          summary: "Insufficient fiscal year data"
+          description: "{{ $labels.city }} has only {{ $value }} fiscal years of data (minimum recommended: 3)"
+          runbook_url: "https://docs.ibco-ca.us/runbooks/insufficient-data"
+
+  # =========================================================================
+  # System Resource Alerts
+  # =========================================================================
+  - name: system_resources
+    interval: 30s
+    rules:
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | printf \"%.1f\" }}% (threshold: 85%)"
+          runbook_url: "https://docs.ibco-ca.us/runbooks/high-memory"
+
+      - alert: CriticalMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          component: system
+        annotations:
+          summary: "Critical memory usage"
+          description: "Memory usage is {{ $value | printf \"%.1f\" }}% (threshold: 95%)"
+          runbook_url: "https://docs.ibco-ca.us/runbooks/critical-memory"
+
+      - alert: HighDiskUsage
+        expr: |
+          (1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High disk usage"
+          description: "Disk usage is {{ $value | printf \"%.1f\" }}% (threshold: 80%)"
+          runbook_url: "https://docs.ibco-ca.us/runbooks/high-disk"
+
+      - alert: CriticalDiskUsage
+        expr: |
+          (1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) * 100 > 90
+        for: 2m
+        labels:
+          severity: critical
+          component: system
+        annotations:
+          summary: "Critical disk usage"
+          description: "Disk usage is {{ $value | printf \"%.1f\" }}% (threshold: 90%)"
+          runbook_url: "https://docs.ibco-ca.us/runbooks/critical-disk"
+
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value | printf \"%.1f\" }}% for 10 minutes (threshold: 80%)"
+          runbook_url: "https://docs.ibco-ca.us/runbooks/high-cpu"
+
+  # =========================================================================
+  # Redis Alerts
+  # =========================================================================
+  - name: redis
+    interval: 30s
+    rules:
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: redis
+        annotations:
+          summary: "Redis is down"
+          description: "Redis cache has been down for more than 1 minute"
+          runbook_url: "https://docs.ibco-ca.us/runbooks/redis-down"
+
+      - alert: RedisHighMemoryUsage
+        expr: |
+          (redis_memory_used_bytes / redis_memory_max_bytes) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          component: redis
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis memory usage is {{ $value | printf \"%.1f\" }}% (threshold: 85%)"
+          runbook_url: "https://docs.ibco-ca.us/runbooks/redis-memory"

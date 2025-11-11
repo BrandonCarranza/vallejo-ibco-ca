@@ -1,0 +1,142 @@
+# Alertmanager configuration for IBCo Vallejo Console
+#
+# Handles alert routing, grouping, and notifications
+
+global:
+  # Default notification settings
+  resolve_timeout: 5m
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'alerts@ibco-ca.us'
+  smtp_auth_username: 'alerts@ibco-ca.us'
+  smtp_auth_password: 'YOUR_SMTP_PASSWORD'  # Set via environment variable
+  smtp_require_tls: true
+
+# Alert routing tree
+route:
+  # Default receiver for all alerts
+  receiver: 'default'
+
+  # Group alerts by alertname, cluster, and service
+  group_by: ['alertname', 'cluster', 'component']
+
+  # Wait 30 seconds before sending initial alert
+  # (allows grouping of multiple firing alerts)
+  group_wait: 30s
+
+  # Wait 5 minutes before sending about new alerts in the same group
+  group_interval: 5m
+
+  # Wait 4 hours before re-sending an alert
+  repeat_interval: 4h
+
+  # Child routes for specific alert types
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 10s
+      repeat_interval: 1h
+      continue: true  # Also send to default receiver
+
+    # Database alerts - notify DBA team
+    - match:
+        component: database
+      receiver: 'database-team'
+      group_by: ['alertname', 'query_type']
+
+    # Data quality alerts - notify data team
+    - match:
+        component: data
+      receiver: 'data-team'
+      repeat_interval: 24h  # Less frequent for data alerts
+
+    # System resource alerts
+    - match:
+        component: system
+      receiver: 'ops-team'
+
+# Notification receivers
+receivers:
+  # Default receiver - email to ops team
+  - name: 'default'
+    email_configs:
+      - to: 'ops@ibco-ca.us'
+        headers:
+          Subject: '[IBCo Alert] {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>IBCo Vallejo Console Alert</h2>
+          <p><strong>Alert:</strong> {{ .GroupLabels.alertname }}</p>
+          <p><strong>Severity:</strong> {{ .CommonLabels.severity }}</p>
+          <p><strong>Component:</strong> {{ .CommonLabels.component }}</p>
+
+          <h3>Firing Alerts ({{ .Alerts.Firing | len }})</h3>
+          {{ range .Alerts.Firing }}
+          <p>
+            <strong>{{ .Labels.alertname }}</strong><br>
+            {{ .Annotations.description }}<br>
+            <a href="{{ .Annotations.runbook_url }}">Runbook</a>
+          </p>
+          {{ end }}
+
+  # Critical alerts - SMS + email + Slack
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'oncall@ibco-ca.us, ops@ibco-ca.us'
+        headers:
+          Subject: '[CRITICAL] {{ .GroupLabels.alertname }}'
+          Priority: 'urgent'
+    # Uncomment when Slack is configured
+    # slack_configs:
+    #   - api_url: 'YOUR_SLACK_WEBHOOK_URL'
+    #     channel: '#alerts-critical'
+    #     title: 'CRITICAL: {{ .GroupLabels.alertname }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+    # Uncomment when PagerDuty is configured
+    # pagerduty_configs:
+    #   - service_key: 'YOUR_PAGERDUTY_KEY'
+
+  # Database team
+  - name: 'database-team'
+    email_configs:
+      - to: 'dba@ibco-ca.us'
+        headers:
+          Subject: '[Database Alert] {{ .GroupLabels.alertname }}'
+
+  # Data quality team
+  - name: 'data-team'
+    email_configs:
+      - to: 'data@ibco-ca.us'
+        headers:
+          Subject: '[Data Quality] {{ .GroupLabels.alertname }}'
+
+  # Operations team
+  - name: 'ops-team'
+    email_configs:
+      - to: 'ops@ibco-ca.us'
+        headers:
+          Subject: '[System Alert] {{ .GroupLabels.alertname }}'
+
+# Alert inhibition rules
+# Prevents sending redundant alerts
+inhibit_rules:
+  # Inhibit warning if critical is firing
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'component']
+
+  # Don't alert about high error rate if API is down
+  - source_match:
+      alertname: 'APIDown'
+    target_match:
+      alertname: 'HighErrorRate'
+    equal: ['endpoint']
+
+  # Don't alert about database issues if database is down
+  - source_match:
+      alertname: 'DatabaseDown'
+    target_match:
+      component: 'database'
+    equal: ['instance']
