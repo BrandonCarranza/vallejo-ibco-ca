@@ -15,8 +15,8 @@ import time
 from src.config.settings import settings
 from src.config.logging_config import setup_logging, get_logger
 from src.config.observability import setup_observability
-from src.api.v1.routes import health, cities, financial, risk, projections, metadata, lineage
-from src.api.v1.routes.admin import quality_dashboard, tokens, refresh_status, validation_workflow
+from src.api.v1.routes import health, cities, financial, risk, projections, metadata, lineage, decisions
+from src.api.v1.routes.admin import quality_dashboard, tokens, refresh_status, validation_workflow, decisions as admin_decisions
 from src.api.middleware.authentication import AuthenticationMiddleware
 from src.api.middleware.rate_limiting import RateLimitMiddleware
 
@@ -90,6 +90,15 @@ tags_metadata = [
             "Complete data provenance tracking. Every data point links back to source documents "
             "(CAFR, actuarial reports, etc.) with page numbers, upload timestamps, and change history. "
             "Enables full transparency and reproducibility."
+        ),
+    },
+    {
+        "name": "Decisions",
+        "description": (
+            "City council decisions and ballot measures with fiscal impact tracking. "
+            "Includes predicted fiscal impacts and actual outcomes, enabling prediction accuracy analysis. "
+            "Tracks decisions like tax increases, bond issuances, labor contracts, and budget amendments. "
+            "Transparent tracking of predictions vs. actuals builds institutional credibility."
         ),
     },
     {
@@ -232,12 +241,14 @@ app.include_router(risk.router, prefix=settings.api_prefix, tags=["Risk Scores"]
 app.include_router(projections.router, prefix=settings.api_prefix, tags=["Projections"])
 app.include_router(metadata.router, prefix=settings.api_prefix, tags=["Metadata"])
 app.include_router(lineage.router, prefix=settings.api_prefix, tags=["Data Lineage"])
+app.include_router(decisions.router, prefix=settings.api_prefix, tags=["Decisions"])
 
 # Admin routers (internal use only)
 app.include_router(quality_dashboard.router, prefix=settings.api_prefix, tags=["Admin", "Data Quality"])
 app.include_router(tokens.router, prefix=f"{settings.api_prefix}/admin", tags=["Admin", "Token Management"])
 app.include_router(refresh_status.router, prefix=settings.api_prefix, tags=["Admin", "Data Refresh"])
 app.include_router(validation_workflow.router, prefix=settings.api_prefix, tags=["Admin", "Validation"])
+app.include_router(admin_decisions.router, prefix=settings.api_prefix, tags=["Admin", "Decisions"])
 
 
 # Root endpoint

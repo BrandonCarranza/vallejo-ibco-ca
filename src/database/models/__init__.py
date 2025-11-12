@@ -9,6 +9,7 @@ Organized by domain:
 - projections: Financial projections, scenarios, fiscal cliff analysis
 - refresh: Data refresh operations, notifications, schedules
 - validation: Manual review and validation workflow
+- civic: City council decisions, votes, and outcome tracking
 """
 
 # Core models
@@ -65,6 +66,17 @@ from src.database.models.validation import (
     ValidationRule,
 )
 
+# Civic models
+from src.database.models.civic import (
+    Decision,
+    DecisionCategory,
+    DecisionStatus,
+    Outcome,
+    OutcomeStatus,
+    Vote,
+    VoteType,
+)
+
 __all__ = [
     # Core models
     "City",
@@ -104,4 +116,12 @@ __all__ = [
     "ValidationRecord",
     "AnomalyFlag",
     "ValidationRule",
+    # Civic models
+    "Decision",
+    "DecisionCategory",
+    "DecisionStatus",
+    "Vote",
+    "VoteType",
+    "Outcome",
+    "OutcomeStatus",
 ]
