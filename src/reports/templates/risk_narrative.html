@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block report_title %}{{ city_name }} Fiscal Risk Narrative - FY{{ fiscal_year }}{% endblock %}
+
+{% block content %}
+<section>
+    <h2>Executive Summary</h2>
+    <p style="font-size: 1.1em; line-height: 1.8;">{{ narrative.executive_summary }}</p>
+</section>
+
+<section>
+    <h2>Risk Score Overview</h2>
+    <div class="metric">
+        <span class="metric-label">Overall Risk Score:</span>
+        <span class="metric-value risk-{{ risk_score.risk_level }}">{{ risk_score.overall_score }}/100 ({{ risk_score.risk_level|capitalize }})</span>
+    </div>
+    <div class="metric">
+        <span class="metric-label">Data Completeness:</span>
+        <span class="metric-value">{{ risk_score.data_completeness_percent|format_percent(0) }}</span>
+    </div>
+</section>
+
+<section>
+    <h2>Primary Drivers of Fiscal Stress</h2>
+    <p style="font-size: 1.05em; line-height: 1.7;">{{ narrative.primary_drivers }}</p>
+
+    <h3>Category Breakdown</h3>
+    <table>
+        <tr>
+            <th>Category</th>
+            <th>Score</th>
+            <th>Assessment</th>
+        </tr>
+        <tr>
+            <td>Pension Stress</td>
+            <td class="risk-{% if risk_score.pension_stress_score >= 75 %}severe{% elif risk_score.pension_stress_score >= 50 %}high{% elif risk_score.pension_stress_score >= 25 %}moderate{% else %}low{% endif %}">
+                {{ risk_score.pension_stress_score }}/100
+            </td>
+            <td>{% if risk_score.pension_stress_score >= 75 %}Critical{% elif risk_score.pension_stress_score >= 50 %}High concern{% else %}Manageable{% endif %}</td>
+        </tr>
+        <tr>
+            <td>Structural Balance</td>
+            <td class="risk-{% if risk_score.structural_balance_score >= 75 %}severe{% elif risk_score.structural_balance_score >= 50 %}high{% elif risk_score.structural_balance_score >= 25 %}moderate{% else %}low{% endif %}">
+                {{ risk_score.structural_balance_score }}/100
+            </td>
+            <td>{% if risk_score.structural_balance_score >= 75 %}Critical{% elif risk_score.structural_balance_score >= 50 %}High concern{% else %}Manageable{% endif %}</td>
+        </tr>
+        <tr>
+            <td>Liquidity & Reserves</td>
+            <td class="risk-{% if risk_score.liquidity_score >= 75 %}severe{% elif risk_score.liquidity_score >= 50 %}high{% elif risk_score.liquidity_score >= 25 %}moderate{% else %}low{% endif %}">
+                {{ risk_score.liquidity_score }}/100
+            </td>
+            <td>{% if risk_score.liquidity_score >= 75 %}Critical{% elif risk_score.liquidity_score >= 50 %}High concern{% else %}Manageable{% endif %}</td>
+        </tr>
+        <tr>
+            <td>Revenue Sustainability</td>
+            <td class="risk-{% if risk_score.revenue_sustainability_score >= 75 %}severe{% elif risk_score.revenue_sustainability_score >= 50 %}high{% elif risk_score.revenue_sustainability_score >= 25 %}moderate{% else %}low{% endif %}">
+                {{ risk_score.revenue_sustainability_score }}/100
+            </td>
+            <td>{% if risk_score.revenue_sustainability_score >= 75 %}Critical{% elif risk_score.revenue_sustainability_score >= 50 %}High concern{% else %}Manageable{% endif %}</td>
+        </tr>
+        <tr>
+            <td>Debt Burden</td>
+            <td class="risk-{% if risk_score.debt_burden_score >= 75 %}severe{% elif risk_score.debt_burden_score >= 50 %}high{% elif risk_score.debt_burden_score >= 25 %}moderate{% else %}low{% endif %}">
+                {{ risk_score.debt_burden_score }}/100
+            </td>
+            <td>{% if risk_score.debt_burden_score >= 75 %}Critical{% elif risk_score.debt_burden_score >= 50 %}High concern{% else %}Manageable{% endif %}</td>
+        </tr>
+    </table>
+</section>
+
+<section>
+    <h2>Fiscal Outlook</h2>
+    <p style="font-size: 1.05em; line-height: 1.7;">{{ narrative.fiscal_cliff_warning }}</p>
+
+    {% if fiscal_cliff and fiscal_cliff.has_fiscal_cliff %}
+    <div style="background: #FFEBEE; padding: 15px; border-left: 4px solid #D32F2F; margin: 20px 0;">
+        <h3 style="color: #D32F2F; margin-top: 0;">Fiscal Cliff Warning</h3>
+        <p><strong>Projected Reserve Exhaustion:</strong> FY{{ fiscal_cliff.fiscal_cliff_year }} ({{ fiscal_cliff.years_until_cliff }} years)</p>
+        <p><strong>Cumulative Deficit:</strong> {{ fiscal_cliff.cumulative_deficit_at_cliff|format_currency(compact=True) }}</p>
+        {% if fiscal_cliff.revenue_increase_needed_percent %}
+        <p><strong>Revenue Increase Needed:</strong> {{ fiscal_cliff.revenue_increase_needed_percent|format_percent(0) }}</p>
+        {% endif %}
+        {% if fiscal_cliff.expenditure_decrease_needed_percent %}
+        <p><strong>OR Expenditure Decrease Needed:</strong> {{ fiscal_cliff.expenditure_decrease_needed_percent|format_percent(0) }}</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</section>
+
+<section>
+    <h2>Key Risk Indicators</h2>
+    <p style="font-size: 1.05em; line-height: 1.7;">{{ narrative.key_indicators }}</p>
+</section>
+
+<section>
+    <h2>Conclusion</h2>
+    <p style="font-size: 1.05em; line-height: 1.7;">{{ narrative.conclusion }}</p>
+</section>
+{% endblock %}

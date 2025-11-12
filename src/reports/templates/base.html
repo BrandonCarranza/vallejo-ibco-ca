@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}IBCo Report{% endblock %}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        header { border-bottom: 3px solid #2196F3; padding-bottom: 20px; margin-bottom: 30px; }
+        h1 { color: #2196F3; font-size: 2.5em; margin-bottom: 10px; }
+        h2 { color: #1976D2; font-size: 1.8em; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #E3F2FD; padding-bottom: 5px; }
+        h3 { color: #424242; font-size: 1.3em; margin-top: 20px; margin-bottom: 10px; }
+        .metadata { color: #666; font-size: 0.9em; margin-bottom: 20px; }
+        .metric { display: inline-block; margin: 10px 20px 10px 0; }
+        .metric-label { font-weight: bold; color: #666; }
+        .metric-value { font-size: 1.2em; color: #2196F3; }
+        .risk-low { color: #4CAF50; }
+        .risk-moderate { color: #FFC107; }
+        .risk-high { color: #FF5722; }
+        .risk-severe { color: #D32F2F; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #E3F2FD; color: #1976D2; font-weight: bold; }
+        .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 0.85em; color: #666; }
+        @media print { .container { box-shadow: none; } body { background: white; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            {% block header %}
+            <h1>{% block report_title %}IBCo Report{% endblock %}</h1>
+            <div class="metadata">
+                <strong>City:</strong> {{ city_name }} |
+                <strong>Fiscal Year:</strong> {{ fiscal_year }} |
+                <strong>Generated:</strong> {{ generated_at|format_date }}
+            </div>
+            {% endblock %}
+        </header>
+
+        <main>
+            {% block content %}{% endblock %}
+        </main>
+
+        <footer class="footer">
+            {% block footer %}
+            <p><strong>Data Source:</strong> IBCo Vallejo Console</p>
+            <p><strong>Methodology:</strong> All data manually entered from official CAFR and CalPERS documents with complete lineage tracking.</p>
+            <p><strong>Transparency:</strong> This report is based on transparent, auditable data. All methodologies and raw data are publicly available.</p>
+            <p><strong>Disclaimer:</strong> These are fiscal stress indicators, not bankruptcy predictions. Actual outcomes depend on policy choices and economic conditions.</p>
+            {% endblock %}
+        </footer>
+    </div>
+</body>
+</html>
