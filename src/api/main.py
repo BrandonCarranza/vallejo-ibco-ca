@@ -15,8 +15,8 @@ import time
 from src.config.settings import settings
 from src.config.logging_config import setup_logging, get_logger
 from src.config.observability import setup_observability
-from src.api.v1.routes import health, cities, financial, risk, projections, metadata, lineage, decisions
-from src.api.v1.routes.admin import quality_dashboard, tokens, refresh_status, validation_workflow, decisions as admin_decisions
+from src.api.v1.routes import health, cities, financial, risk, projections, metadata, lineage, decisions, notifications
+from src.api.v1.routes.admin import quality_dashboard, tokens, refresh_status, validation_workflow, decisions as admin_decisions, stakeholder_list
 from src.api.middleware.authentication import AuthenticationMiddleware
 from src.api.middleware.rate_limiting import RateLimitMiddleware
 
@@ -102,6 +102,15 @@ tags_metadata = [
         ),
     },
     {
+        "name": "Notifications",
+        "description": (
+            "Automated alerts and stakeholder communications. "
+            "Subscribe to receive notifications when key metrics change (risk score increases, fiscal cliff moves closer, etc.). "
+            "Public subscription with easy unsubscribe. Privacy-respecting, GDPR-compliant. "
+            "Strictly non-partisan: data-only communications, no policy advocacy."
+        ),
+    },
+    {
         "name": "Admin",
         "description": "**Internal use only.** Administrative endpoints for data management, validation workflows, and token management. Requires authentication.",
         "externalDocs": {
@@ -124,6 +133,15 @@ tags_metadata = [
     {
         "name": "Validation",
         "description": "**Internal use only.** Manual review and validation workflow for data entry. Requires authentication.",
+    },
+    {
+        "name": "Stakeholders",
+        "description": (
+            "**Internal use only.** Stakeholder communication management. "
+            "Manage subscriber list, configure alert rules, send quarterly updates and press releases. "
+            "Privacy-respecting: GDPR-compliant with easy unsubscribe. Strictly non-partisan communications. "
+            "Requires authentication."
+        ),
     },
 ]
 
@@ -242,6 +260,7 @@ app.include_router(projections.router, prefix=settings.api_prefix, tags=["Projec
 app.include_router(metadata.router, prefix=settings.api_prefix, tags=["Metadata"])
 app.include_router(lineage.router, prefix=settings.api_prefix, tags=["Data Lineage"])
 app.include_router(decisions.router, prefix=settings.api_prefix, tags=["Decisions"])
+app.include_router(notifications.router, prefix=settings.api_prefix, tags=["Notifications"])
 
 # Admin routers (internal use only)
 app.include_router(quality_dashboard.router, prefix=settings.api_prefix, tags=["Admin", "Data Quality"])
@@ -249,6 +268,7 @@ app.include_router(tokens.router, prefix=f"{settings.api_prefix}/admin", tags=["
 app.include_router(refresh_status.router, prefix=settings.api_prefix, tags=["Admin", "Data Refresh"])
 app.include_router(validation_workflow.router, prefix=settings.api_prefix, tags=["Admin", "Validation"])
 app.include_router(admin_decisions.router, prefix=settings.api_prefix, tags=["Admin", "Decisions"])
+app.include_router(stakeholder_list.router, prefix=settings.api_prefix, tags=["Admin", "Stakeholders"])
 
 
 # Root endpoint
