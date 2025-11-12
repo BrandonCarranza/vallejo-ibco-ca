@@ -231,6 +231,7 @@ class DataLineage(Base, AuditMixin):
     validated = Column(Boolean, nullable=False, default=False)
     validated_by = Column(String(255), nullable=True)
     validated_at = Column(DateTime, nullable=True)
+    validation_notes = Column(Text, nullable=True)
 
     # Cross-validation
     cross_validated_source_id = Column(
@@ -238,9 +239,14 @@ class DataLineage(Base, AuditMixin):
     )
     matches_cross_validation = Column(Boolean, nullable=True)
 
-    # Notes
+    # Notes & Confidence
     notes = Column(Text, nullable=True)
     confidence_level = Column(String(20), nullable=True)  # High, Medium, Low
+    confidence_score = Column(Integer, nullable=True)  # 0-100 numeric score
+
+    # Additional source metadata
+    source_document_table_name = Column(String(255), nullable=True)  # e.g., "Table 5"
+    source_document_line_item = Column(String(255), nullable=True)  # e.g., "Line 42"
 
     # Relationships
     source = relationship("DataSource", foreign_keys=[source_id])
