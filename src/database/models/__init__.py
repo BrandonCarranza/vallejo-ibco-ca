@@ -7,6 +7,7 @@ Organized by domain:
 - pensions: Pension plans, contributions, projections, OPEB
 - risk: Risk scores, indicators, trends, benchmarks
 - projections: Financial projections, scenarios, fiscal cliff analysis
+- refresh: Data refresh operations, notifications, schedules
 """
 
 # Core models
@@ -47,6 +48,14 @@ from src.database.models.projections import (
     ScenarioAssumption,
 )
 
+# Refresh models
+from src.database.models.refresh import (
+    DataRefreshSchedule,
+    RefreshCheck,
+    RefreshNotification,
+    RefreshOperation,
+)
+
 __all__ = [
     # Core models
     "City",
@@ -76,4 +85,9 @@ __all__ = [
     "FinancialProjection",
     "ScenarioAssumption",
     "FiscalCliffAnalysis",
+    # Refresh models
+    "RefreshCheck",
+    "RefreshNotification",
+    "RefreshOperation",
+    "DataRefreshSchedule",
 ]

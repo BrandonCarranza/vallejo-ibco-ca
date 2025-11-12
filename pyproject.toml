@@ -36,6 +36,7 @@ asyncpg = "^0.29.0"
 # Task Queue
 redis = "^5.0.1"
 celery = "^5.3.6"
+apscheduler = "^3.10.4"
 
 # Data Processing
 pandas = "^2.2.0"
