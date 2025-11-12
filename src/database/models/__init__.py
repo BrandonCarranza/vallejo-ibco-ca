@@ -8,6 +8,7 @@ Organized by domain:
 - risk: Risk scores, indicators, trends, benchmarks
 - projections: Financial projections, scenarios, fiscal cliff analysis
 - refresh: Data refresh operations, notifications, schedules
+- validation: Manual review and validation workflow
 """
 
 # Core models
@@ -56,6 +57,14 @@ from src.database.models.refresh import (
     RefreshOperation,
 )
 
+# Validation models
+from src.database.models.validation import (
+    AnomalyFlag,
+    ValidationQueueItem,
+    ValidationRecord,
+    ValidationRule,
+)
+
 __all__ = [
     # Core models
     "City",
@@ -90,4 +99,9 @@ __all__ = [
     "RefreshNotification",
     "RefreshOperation",
     "DataRefreshSchedule",
+    # Validation models
+    "ValidationQueueItem",
+    "ValidationRecord",
+    "AnomalyFlag",
+    "ValidationRule",
 ]
