@@ -10,6 +10,7 @@ Organized by domain:
 - refresh: Data refresh operations, notifications, schedules
 - validation: Manual review and validation workflow
 - civic: City council decisions, votes, and outcome tracking
+- stakeholders: Subscriber management, alerts, and notifications
 """
 
 # Core models
@@ -77,6 +78,18 @@ from src.database.models.civic import (
     VoteType,
 )
 
+# Stakeholder communication models
+from src.database.models.stakeholders import (
+    AlertRule,
+    AlertSeverity,
+    Notification,
+    NotificationStatus,
+    NotificationType,
+    Subscriber,
+    SubscriberCategory,
+    SubscriberStatus,
+)
+
 __all__ = [
     # Core models
     "City",
@@ -124,4 +137,13 @@ __all__ = [
     "VoteType",
     "Outcome",
     "OutcomeStatus",
+    # Stakeholder communication models
+    "Subscriber",
+    "SubscriberCategory",
+    "SubscriberStatus",
+    "AlertRule",
+    "AlertSeverity",
+    "Notification",
+    "NotificationType",
+    "NotificationStatus",
 ]
