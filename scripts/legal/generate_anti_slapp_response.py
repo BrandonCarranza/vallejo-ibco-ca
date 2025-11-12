@@ -42,7 +42,7 @@ from sqlalchemy.orm import Session
 from src.database.base import Base
 from src.database.models.legal import LegalIncident, LegalTemplate
 from src.database.models.core import DataLineage, DataSource
-from src.config.database import get_session
+from src.config.database import SessionLocal
 
 
 # ============================================================================
