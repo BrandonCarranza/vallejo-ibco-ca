@@ -41,20 +41,128 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     logger.info("IBCo API shutting down...")
 
 
+# OpenAPI tags metadata
+tags_metadata = [
+    {
+        "name": "Root",
+        "description": "API root endpoints including health checks and disclaimer information.",
+    },
+    {
+        "name": "Health",
+        "description": "System health monitoring endpoints for checking API availability and database connectivity.",
+    },
+    {
+        "name": "Cities",
+        "description": "Browse and search California municipalities. Returns city information including population, location, and data availability.",
+    },
+    {
+        "name": "Risk Scores",
+        "description": (
+            "Fiscal risk indicators composite scores (0-100) calculated from multiple financial ratios. "
+            "Higher scores indicate greater fiscal stress. Categories: Pension Stress, Structural Balance, "
+            "Liquidity & Reserves, Revenue Sustainability, and Debt Burden. "
+            "**Note:** These are stress indicators, not bankruptcy predictions."
+        ),
+    },
+    {
+        "name": "Financial Data",
+        "description": (
+            "Municipal financial data from Comprehensive Annual Financial Reports (CAFRs). "
+            "Includes revenues, expenditures, fund balances, and debt obligations. "
+            "All data manually entered with complete audit trail."
+        ),
+    },
+    {
+        "name": "Projections",
+        "description": (
+            "10-year fiscal projections under multiple scenarios (base, optimistic, pessimistic). "
+            "Includes fiscal cliff analysis showing when reserves may be exhausted. "
+            "Projections use trend-based models with configurable assumptions."
+        ),
+    },
+    {
+        "name": "Metadata",
+        "description": "API metadata including available indicators, scenarios, data coverage, and system information.",
+    },
+    {
+        "name": "Data Lineage",
+        "description": (
+            "Complete data provenance tracking. Every data point links back to source documents "
+            "(CAFR, actuarial reports, etc.) with page numbers, upload timestamps, and change history. "
+            "Enables full transparency and reproducibility."
+        ),
+    },
+    {
+        "name": "Admin",
+        "description": "**Internal use only.** Administrative endpoints for data management, validation workflows, and token management. Requires authentication.",
+        "externalDocs": {
+            "description": "Admin Guide",
+            "url": "https://docs.ibco-ca.us/admin-guide"
+        }
+    },
+    {
+        "name": "Data Quality",
+        "description": "**Internal use only.** Data quality monitoring dashboards and validation status. Requires authentication.",
+    },
+    {
+        "name": "Token Management",
+        "description": "**Internal use only.** API token generation and management for authenticated access. Requires authentication.",
+    },
+    {
+        "name": "Data Refresh",
+        "description": "**Internal use only.** Data refresh orchestration status and controls. Requires authentication.",
+    },
+    {
+        "name": "Validation",
+        "description": "**Internal use only.** Manual review and validation workflow for data entry. Requires authentication.",
+    },
+]
+
 # Create FastAPI app
 app = FastAPI(
     title="IBCo Vallejo Console API",
     description=(
-        "Independent Budget & Oversight Console - Municipal fiscal transparency API.\n\n"
-        "Provides access to municipal financial data, pension obligations, risk scores, "
-        "and financial projections.\n\n"
-        "**Important:** This is independent civic analysis, not official city data. "
-        "See /disclaimer for full disclaimer."
+        "# Independent Budget & Oversight Console\n\n"
+        "Municipal fiscal transparency API providing access to California city financial data, "
+        "pension obligations, risk scores, and fiscal projections.\n\n"
+        "## Key Features\n\n"
+        "- **Complete Transparency**: All data manually entered from official documents with full audit trail\n"
+        "- **Risk Indicators**: Composite fiscal stress scores across 5 categories\n"
+        "- **10-Year Projections**: Multi-scenario forecasts with fiscal cliff analysis\n"
+        "- **Data Lineage**: Every data point links to source document with page number\n"
+        "- **Public Access**: No authentication required for public endpoints (rate limited)\n\n"
+        "## Getting Started\n\n"
+        "1. Browse available cities: `GET /api/v1/cities?state=CA`\n"
+        "2. Get current risk score: `GET /api/v1/risk/cities/{city_id}/current`\n"
+        "3. View fiscal projections: `GET /api/v1/projections/cities/{city_id}/fiscal-cliff`\n\n"
+        "## Rate Limits\n\n"
+        "- **Public tier**: 100 requests/hour (no authentication)\n"
+        "- **Researcher tier**: 1000 requests/hour (API token required)\n"
+        "- Contact data@ibco-ca.us for API token\n\n"
+        "## Important Notice\n\n"
+        "This is **independent civic analysis**, not official government data. "
+        "Risk scores are stress indicators, not bankruptcy predictions. "
+        "See `/disclaimer` for full legal disclaimer.\n\n"
+        "## Documentation\n\n"
+        "- **API Usage Guide**: [API_USAGE_GUIDE.md](https://github.com/your-org/vallejo-ibco-ca/blob/main/docs/API_USAGE_GUIDE.md)\n"
+        "- **Developer Guide**: [DEVELOPER_GUIDE.md](https://github.com/your-org/vallejo-ibco-ca/blob/main/docs/DEVELOPER_GUIDE.md)\n"
+        "- **Code Examples**: [examples/](https://github.com/your-org/vallejo-ibco-ca/tree/main/examples)\n"
     ),
     version="1.0.0",
+    contact={
+        "name": "IBCo Data Team",
+        "email": "data@ibco-ca.us",
+        "url": "https://ibco-ca.us",
+    },
+    license_info={
+        "name": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "url": "https://creativecommons.org/licenses/by/4.0/",
+    },
+    terms_of_service="https://docs.ibco-ca.us/legal/terms-of-service",
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
+    openapi_tags=tags_metadata,
     lifespan=lifespan,
 )
 
