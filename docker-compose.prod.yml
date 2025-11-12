@@ -71,22 +71,94 @@ services:
       - ./data:/app/data
     restart: unless-stopped
 
+  # ==========================================================================
+  # Metabase - Public Dashboard & Analytics
+  # ==========================================================================
+  # Metabase provides public-facing dashboards for civic transparency.
+  # Connects to PostgreSQL with read-only credentials (metabase_readonly).
+  #
+  # Public dashboards:
+  #   - Vallejo Fiscal Overview: Revenue/expenditure trends, fund balance, risk scores
+  #   - Pension Analysis: Pension obligations, funded ratios, UAL trends
+  #   - Fiscal Projections: 10-year projections, fiscal cliff analysis
+  #   - Peer Comparison: Vallejo vs other CA cities (multi-city data)
+  #
+  # Access:
+  #   - Admin UI: http://localhost:3000
+  #   - Public dashboards: http://localhost:3000/public/dashboard/{hash}
+  #
+  # Setup:
+  #   1. Start Metabase: docker-compose up -d metabase
+  #   2. Create read-only user: psql -f src/dashboard/metabase/scripts/create_readonly_user.sql
+  #   3. Configure database connection in Metabase UI
+  #   4. Import dashboards: python src/dashboard/metabase/scripts/import_dashboards.py
+  # ==========================================================================
+
   metabase:
     image: metabase/metabase:latest
     environment:
+      # Metabase Application Database (stores Metabase settings, users, etc.)
       MB_DB_TYPE: postgres
       MB_DB_DBNAME: metabase
       MB_DB_PORT: 5432
       MB_DB_USER: ${DATABASE_USER}
       MB_DB_PASS: ${DATABASE_PASSWORD}
       MB_DB_HOST: postgres
+
+      # Admin credentials
+      MB_ADMIN_EMAIL: ${METABASE_ADMIN_EMAIL:-admin@ibco-ca.us}
+      MB_ADMIN_PASSWORD: ${METABASE_ADMIN_PASSWORD}
+
+      # Performance tuning
+      JAVA_OPTS: "-Xmx2g -Xms1g"  # Increase heap size for better performance
+
+      # Site settings
+      MB_SITE_NAME: "IBCo Vallejo Console"
+      MB_SITE_URL: ${METABASE_SITE_URL:-http://localhost:3000}
+
+      # Email notifications (optional - for stakeholder reports)
+      MB_EMAIL_SMTP_HOST: ${SMTP_HOST:-}
+      MB_EMAIL_SMTP_PORT: ${SMTP_PORT:-587}
+      MB_EMAIL_SMTP_USERNAME: ${SMTP_USERNAME:-}
+      MB_EMAIL_SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MB_EMAIL_FROM_ADDRESS: ${SMTP_FROM_ADDRESS:-notifications@ibco-ca.us}
+
+      # Embedding settings (for public dashboards)
+      MB_EMBEDDING_APP_ORIGIN: ${METABASE_EMBEDDING_ORIGIN:-http://localhost:3000}
+
+      # Timezone
+      MB_TIMEZONE: America/Los_Angeles
+
+      # Session cookie settings
+      MB_SESSION_TIMEOUT: 20160  # 14 days in minutes
+
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+
     ports:
       - "3000:3000"
+
     volumes:
       - metabase_data:/metabase-data
+      - ./src/dashboard/metabase/dashboards:/dashboards:ro  # Dashboard configs
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s  # Metabase takes ~2 min to start
+
     restart: unless-stopped
+
+    # Resource limits (prevent Metabase from consuming all memory)
+    deploy:
+      resources:
+        limits:
+          memory: 2.5G
+        reservations:
+          memory: 1G
 
   nginx:
     image: nginx:alpine

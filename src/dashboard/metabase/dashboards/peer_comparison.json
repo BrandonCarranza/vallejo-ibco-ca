@@ -1,0 +1,394 @@
+{
+  "name": "Peer Comparison",
+  "description": "Compare Vallejo's fiscal health to similar California cities. Shows where Vallejo ranks on key indicators like risk scores, pension funded ratios, and fund balance levels. Context is critical for understanding whether Vallejo's situation is unique or systemic.",
+  "dashboard_version": "1.0",
+  "created_for": "IBCo Vallejo Console - Multi-City Comparison",
+  "parameters": [
+    {
+      "id": "fiscal_year",
+      "name": "Fiscal Year",
+      "type": "number",
+      "default": "2024",
+      "sql_field": "fiscal_years.year"
+    },
+    {
+      "id": "peer_group",
+      "name": "Peer Group",
+      "type": "category",
+      "default": "CA Cities 50K-250K",
+      "options": ["All CA Cities", "CA Cities 50K-250K", "CA Cities with Bankruptcy History", "Custom"],
+      "sql_field": "benchmark_comparisons.peer_group_name"
+    }
+  ],
+  "questions": [
+    {
+      "id": "pc1",
+      "name": "Risk Score Rankings",
+      "description": "Overall fiscal risk scores across peer cities - who's in worst shape?",
+      "visualization": {
+        "type": "bar",
+        "x_axis": "city_name",
+        "y_axis": "overall_score",
+        "color_by": "risk_level",
+        "sorted": "descending"
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "WITH latest_scores AS (\n  SELECT DISTINCT ON (c.id)\n    c.id AS city_id,\n    c.name AS city_name,\n    c.population,\n    c.county,\n    fy.year AS fiscal_year,\n    rs.overall_score,\n    rs.risk_level,\n    rs.liquidity_score,\n    rs.structural_balance_score,\n    rs.pension_stress_score,\n    rs.revenue_sustainability_score,\n    rs.debt_burden_score\n  FROM cities c\n  JOIN fiscal_years fy ON fy.city_id = c.id\n  LEFT JOIN risk_scores rs ON rs.fiscal_year_id = fy.id\n  WHERE fy.year = {{fiscal_year}}\n    AND c.is_active = true\n    AND rs.is_deleted = false\n  ORDER BY c.id, rs.calculation_date DESC\n)\nSELECT\n  city_name,\n  population,\n  county,\n  fiscal_year,\n  overall_score,\n  risk_level,\n  liquidity_score,\n  structural_balance_score,\n  pension_stress_score,\n  revenue_sustainability_score,\n  debt_burden_score,\n  RANK() OVER (ORDER BY overall_score DESC) AS risk_rank,\n  CASE\n    WHEN city_name = 'Vallejo' THEN true\n    ELSE false\n  END AS is_vallejo\nFROM latest_scores\nORDER BY overall_score DESC;",
+          "template-tags": {
+            "fiscal_year": {
+              "id": "fiscal_year",
+              "name": "fiscal_year",
+              "type": "number",
+              "default": "2024"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "overall_score": {
+            "number_style": "decimal",
+            "decimals": 1
+          },
+          "population": {
+            "number_style": "number",
+            "compact": true
+          }
+        },
+        "colors": {
+          "low": "#4CAF50",
+          "moderate": "#FFC107",
+          "high": "#FF5722",
+          "severe": "#D32F2F"
+        },
+        "highlight_bar": {
+          "condition": "is_vallejo = true",
+          "color": "#2196F3",
+          "label": "Vallejo"
+        }
+      }
+    },
+    {
+      "id": "pc2",
+      "name": "Pension Funded Ratio Comparison",
+      "description": "Compare pension funded ratios across cities - context for Vallejo's pension crisis",
+      "visualization": {
+        "type": "scatter",
+        "x_axis": "avg_funded_ratio",
+        "y_axis": "ual_per_capita",
+        "size": "population",
+        "color": "city_name"
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "WITH pension_totals AS (\n  SELECT\n    c.id AS city_id,\n    c.name AS city_name,\n    c.population,\n    c.county,\n    fy.year AS fiscal_year,\n    AVG(pp.funded_ratio) AS avg_funded_ratio,\n    SUM(pp.unfunded_actuarial_liability) AS total_ual,\n    SUM(pp.total_pension_liability) AS total_liability,\n    SUM(pp.total_employer_contribution) AS annual_contribution\n  FROM cities c\n  JOIN fiscal_years fy ON fy.city_id = c.id\n  LEFT JOIN pension_plans pp ON pp.fiscal_year_id = fy.id\n  WHERE fy.year = {{fiscal_year}}\n    AND c.is_active = true\n    AND pp.is_deleted = false\n  GROUP BY c.id, c.name, c.population, c.county, fy.year\n)\nSELECT\n  city_name,\n  population,\n  county,\n  fiscal_year,\n  avg_funded_ratio,\n  total_ual,\n  (total_ual / NULLIF(population, 0)) AS ual_per_capita,\n  annual_contribution,\n  (annual_contribution / NULLIF(population, 0)) AS contribution_per_capita,\n  CASE\n    WHEN avg_funded_ratio >= 0.90 THEN 'Well Funded'\n    WHEN avg_funded_ratio >= 0.70 THEN 'Adequately Funded'\n    WHEN avg_funded_ratio >= 0.50 THEN 'Underfunded'\n    ELSE 'Severely Underfunded'\n  END AS funding_status,\n  CASE\n    WHEN city_name = 'Vallejo' THEN true\n    ELSE false\n  END AS is_vallejo\nFROM pension_totals\nWHERE population IS NOT NULL\nORDER BY avg_funded_ratio ASC;",
+          "template-tags": {
+            "fiscal_year": {
+              "id": "fiscal_year",
+              "name": "fiscal_year",
+              "type": "number",
+              "default": "2024"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "avg_funded_ratio": {
+            "number_style": "percent",
+            "decimals": 1
+          },
+          "total_ual": {
+            "number_style": "currency",
+            "currency": "USD",
+            "compact": true
+          },
+          "ual_per_capita": {
+            "number_style": "currency",
+            "currency": "USD"
+          },
+          "contribution_per_capita": {
+            "number_style": "currency",
+            "currency": "USD"
+          }
+        },
+        "highlight_point": {
+          "condition": "is_vallejo = true",
+          "color": "#2196F3",
+          "size": "large",
+          "label": "Vallejo"
+        }
+      }
+    },
+    {
+      "id": "pc3",
+      "name": "Fund Balance Ratio Comparison",
+      "description": "Compare fund balance reserves across cities - are Vallejo's reserves unusually low?",
+      "visualization": {
+        "type": "box_plot",
+        "y_axis": "fund_balance_ratio",
+        "group_by": "peer_group"
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "WITH fund_balance_data AS (\n  SELECT\n    c.id AS city_id,\n    c.name AS city_name,\n    c.population,\n    c.county,\n    fy.year AS fiscal_year,\n    fb.total_fund_balance,\n    fb.fund_balance_ratio,\n    fb.days_of_cash,\n    CASE\n      WHEN c.population >= 50000 AND c.population <= 250000 THEN 'CA Cities 50K-250K'\n      WHEN c.population < 50000 THEN 'CA Cities <50K'\n      ELSE 'CA Cities >250K'\n    END AS peer_group\n  FROM cities c\n  JOIN fiscal_years fy ON fy.city_id = c.id\n  LEFT JOIN fund_balances fb ON fb.fiscal_year_id = fy.id\n  WHERE fy.year = {{fiscal_year}}\n    AND c.state = 'CA'\n    AND c.is_active = true\n    AND fb.fund_type = 'General'\n    AND fb.is_deleted = false\n)\nSELECT\n  city_name,\n  population,\n  county,\n  fiscal_year,\n  peer_group,\n  total_fund_balance,\n  fund_balance_ratio,\n  days_of_cash,\n  CASE\n    WHEN fund_balance_ratio >= 0.15 THEN 'Healthy'\n    WHEN fund_balance_ratio >= 0.10 THEN 'Adequate'\n    WHEN fund_balance_ratio >= 0.05 THEN 'Warning'\n    ELSE 'Critical'\n  END AS reserve_status,\n  PERCENT_RANK() OVER (ORDER BY fund_balance_ratio) AS percentile_rank,\n  CASE\n    WHEN city_name = 'Vallejo' THEN true\n    ELSE false\n  END AS is_vallejo\nFROM fund_balance_data\nORDER BY fund_balance_ratio ASC;",
+          "template-tags": {
+            "fiscal_year": {
+              "id": "fiscal_year",
+              "name": "fiscal_year",
+              "type": "number",
+              "default": "2024"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "fund_balance_ratio": {
+            "number_style": "percent",
+            "decimals": 1
+          },
+          "total_fund_balance": {
+            "number_style": "currency",
+            "currency": "USD",
+            "compact": true
+          },
+          "percentile_rank": {
+            "number_style": "percent",
+            "decimals": 0
+          }
+        },
+        "goal_line": {
+          "value": 0.10,
+          "label": "10% Minimum Recommended",
+          "color": "#FFC107"
+        }
+      }
+    },
+    {
+      "id": "pc4",
+      "name": "Benchmark Comparison Summary",
+      "description": "Where does Vallejo rank on each key indicator vs peer group?",
+      "visualization": {
+        "type": "radar",
+        "metric": "city_percentile",
+        "dimensions": "indicator_code"
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "SELECT\n  bc.indicator_code,\n  ri.indicator_name,\n  bc.city_value,\n  bc.peer_average,\n  bc.peer_median,\n  bc.peer_25th_percentile,\n  bc.peer_75th_percentile,\n  bc.peer_best,\n  bc.peer_worst,\n  bc.city_percentile,\n  bc.comparison_category,\n  bc.peer_group_name,\n  bc.peer_group_size\nFROM benchmark_comparisons bc\nJOIN cities c ON bc.city_id = c.id\nJOIN fiscal_years fy ON bc.fiscal_year_id = fy.id\nLEFT JOIN risk_indicators ri ON bc.indicator_code = ri.indicator_code\nWHERE c.name = 'Vallejo'\n  AND fy.year = {{fiscal_year}}\n  AND bc.is_deleted = false\nORDER BY bc.indicator_code ASC;",
+          "template-tags": {
+            "fiscal_year": {
+              "id": "fiscal_year",
+              "name": "fiscal_year",
+              "type": "number",
+              "default": "2024"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "city_value": {
+            "number_style": "decimal",
+            "decimals": 2
+          },
+          "peer_average": {
+            "number_style": "decimal",
+            "decimals": 2
+          },
+          "peer_median": {
+            "number_style": "decimal",
+            "decimals": 2
+          },
+          "city_percentile": {
+            "number_style": "percent",
+            "decimals": 0
+          }
+        },
+        "conditional_formatting": {
+          "comparison_category": {
+            "much_worse": {
+              "background": "#FFEBEE",
+              "text": "#C62828"
+            },
+            "worse": {
+              "background": "#FFF3E0",
+              "text": "#E65100"
+            },
+            "similar": {
+              "background": "#E3F2FD",
+              "text": "#1565C0"
+            },
+            "better": {
+              "background": "#F1F8E9",
+              "text": "#558B2F"
+            },
+            "much_better": {
+              "background": "#E8F5E9",
+              "text": "#2E7D32"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "pc5",
+      "name": "Multi-City Trend: Risk Score Progression",
+      "description": "How have risk scores changed over time for Vallejo vs peers?",
+      "visualization": {
+        "type": "line",
+        "x_axis": "fiscal_year",
+        "y_axis": "overall_score",
+        "series": "city_name"
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "SELECT DISTINCT ON (c.id, fy.year)\n  c.name AS city_name,\n  c.population,\n  fy.year AS fiscal_year,\n  rs.overall_score,\n  rs.risk_level\nFROM cities c\nJOIN fiscal_years fy ON fy.city_id = c.id\nLEFT JOIN risk_scores rs ON rs.fiscal_year_id = fy.id\nWHERE c.state = 'CA'\n  AND c.is_active = true\n  AND rs.is_deleted = false\n  AND fy.year >= {{fiscal_year}} - 5\n  AND fy.year <= {{fiscal_year}}\nORDER BY c.id, fy.year ASC, rs.calculation_date DESC;",
+          "template-tags": {
+            "fiscal_year": {
+              "id": "fiscal_year",
+              "name": "fiscal_year",
+              "type": "number",
+              "default": "2024"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "overall_score": {
+            "number_style": "decimal",
+            "decimals": 1
+          }
+        },
+        "highlight_series": {
+          "city_name": "Vallejo",
+          "line_width": "bold",
+          "color": "#2196F3"
+        }
+      }
+    },
+    {
+      "id": "pc6",
+      "name": "Bankruptcy History Cities Comparison",
+      "description": "Compare Vallejo to other CA cities with bankruptcy history (if applicable)",
+      "visualization": {
+        "type": "table",
+        "sortable": true
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "WITH latest_metrics AS (\n  SELECT DISTINCT ON (c.id)\n    c.id,\n    c.name AS city_name,\n    c.population,\n    c.county,\n    c.bankruptcy_filing_date,\n    c.bankruptcy_exit_date,\n    c.bankruptcy_chapter,\n    fy.year AS fiscal_year,\n    rs.overall_score AS current_risk_score,\n    rs.risk_level,\n    fb.fund_balance_ratio,\n    AVG(pp.funded_ratio) AS avg_pension_funded_ratio\n  FROM cities c\n  JOIN fiscal_years fy ON fy.city_id = c.id\n  LEFT JOIN risk_scores rs ON rs.fiscal_year_id = fy.id\n  LEFT JOIN fund_balances fb ON fb.fiscal_year_id = fy.id AND fb.fund_type = 'General'\n  LEFT JOIN pension_plans pp ON pp.fiscal_year_id = fy.id\n  WHERE c.has_bankruptcy_history = true\n    AND c.state = 'CA'\n    AND fy.year = {{fiscal_year}}\n    AND c.is_active = true\n  GROUP BY c.id, c.name, c.population, c.county, c.bankruptcy_filing_date,\n           c.bankruptcy_exit_date, c.bankruptcy_chapter, fy.year,\n           rs.overall_score, rs.risk_level, fb.fund_balance_ratio\n  ORDER BY c.id, rs.calculation_date DESC\n)\nSELECT\n  city_name,\n  population,\n  county,\n  bankruptcy_filing_date,\n  bankruptcy_exit_date,\n  EXTRACT(YEAR FROM AGE(bankruptcy_exit_date, bankruptcy_filing_date)) AS years_in_bankruptcy,\n  EXTRACT(YEAR FROM AGE(CURRENT_DATE, bankruptcy_exit_date)) AS years_since_exit,\n  fiscal_year,\n  current_risk_score,\n  risk_level,\n  fund_balance_ratio,\n  avg_pension_funded_ratio,\n  CASE\n    WHEN city_name = 'Vallejo' THEN true\n    ELSE false\n  END AS is_vallejo\nFROM latest_metrics\nORDER BY current_risk_score DESC NULLS LAST;",
+          "template-tags": {
+            "fiscal_year": {
+              "id": "fiscal_year",
+              "name": "fiscal_year",
+              "type": "number",
+              "default": "2024"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "current_risk_score": {
+            "number_style": "decimal",
+            "decimals": 1
+          },
+          "fund_balance_ratio": {
+            "number_style": "percent",
+            "decimals": 1
+          },
+          "avg_pension_funded_ratio": {
+            "number_style": "percent",
+            "decimals": 1
+          }
+        },
+        "highlight_row": {
+          "condition": "is_vallejo = true",
+          "background": "#E3F2FD"
+        }
+      }
+    }
+  ],
+  "layout": {
+    "width": 12,
+    "cards": [
+      {
+        "id": "card_pc1",
+        "question_id": "pc1",
+        "row": 0,
+        "col": 0,
+        "size_x": 12,
+        "size_y": 5
+      },
+      {
+        "id": "card_pc4",
+        "question_id": "pc4",
+        "row": 5,
+        "col": 0,
+        "size_x": 6,
+        "size_y": 5
+      },
+      {
+        "id": "card_pc2",
+        "question_id": "pc2",
+        "row": 5,
+        "col": 6,
+        "size_x": 6,
+        "size_y": 5
+      },
+      {
+        "id": "card_pc3",
+        "question_id": "pc3",
+        "row": 10,
+        "col": 0,
+        "size_x": 6,
+        "size_y": 4
+      },
+      {
+        "id": "card_pc5",
+        "question_id": "pc5",
+        "row": 10,
+        "col": 6,
+        "size_x": 6,
+        "size_y": 4
+      },
+      {
+        "id": "card_pc6",
+        "question_id": "pc6",
+        "row": 14,
+        "col": 0,
+        "size_x": 12,
+        "size_y": 4
+      }
+    ]
+  },
+  "public_access": {
+    "enabled": true,
+    "embedding_enabled": true,
+    "signed_embedding": false,
+    "auto_refresh_interval": 86400
+  },
+  "metadata": {
+    "created_by": "IBCo System",
+    "version": "1.0",
+    "last_updated": "2025-11-12",
+    "data_source": "PostgreSQL - IBCo Production Database",
+    "notes": "Peer comparison dashboard - context is critical. Shows where Vallejo ranks vs similar CA cities. Note: This dashboard requires multi-city data. If only Vallejo data is available, comparisons will be limited. Future expansion to other cities will enable full peer analysis."
+  }
+}

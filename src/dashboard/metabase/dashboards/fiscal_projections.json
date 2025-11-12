@@ -1,0 +1,470 @@
+{
+  "name": "Fiscal Projections",
+  "description": "10-year forward-looking fiscal projections showing base, optimistic, and pessimistic scenarios. Identifies fiscal cliff year when reserves are exhausted and analyzes key drivers of fiscal stress.",
+  "dashboard_version": "1.0",
+  "created_for": "IBCo Vallejo Console - Forward-Looking Analysis",
+  "parameters": [
+    {
+      "id": "city_filter",
+      "name": "City",
+      "type": "category",
+      "default": "Vallejo",
+      "sql_field": "cities.name"
+    },
+    {
+      "id": "base_year",
+      "name": "Base Fiscal Year",
+      "type": "number",
+      "default": "2024",
+      "sql_field": "fiscal_years.year"
+    },
+    {
+      "id": "scenario_filter",
+      "name": "Scenario",
+      "type": "category",
+      "default": "all",
+      "options": ["all", "base", "optimistic", "pessimistic"],
+      "sql_field": "projection_scenarios.scenario_code"
+    }
+  ],
+  "questions": [
+    {
+      "id": "pr1",
+      "name": "10-Year Projection: Revenues vs Expenditures",
+      "description": "Projected revenues and expenditures under different scenarios showing operating surplus/deficit trend",
+      "visualization": {
+        "type": "line",
+        "x_axis": "projection_year",
+        "y_axis": "amount",
+        "series": ["scenario", "metric"]
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "SELECT\n  fp.projection_year,\n  ps.scenario_name,\n  ps.scenario_code,\n  fp.total_revenues_projected AS total_revenues,\n  fp.total_expenditures_projected AS total_expenditures,\n  fp.operating_surplus_deficit,\n  fp.operating_margin_percent,\n  fp.ending_fund_balance,\n  fp.is_deficit,\n  fp.is_fiscal_cliff\nFROM financial_projections fp\nJOIN projection_scenarios ps ON fp.scenario_id = ps.id\nJOIN cities c ON fp.city_id = c.id\nJOIN fiscal_years fy ON fp.base_fiscal_year_id = fy.id\nWHERE c.name = {{city_filter}}\n  AND fy.year = {{base_year}}\n  AND ({{scenario_filter}} = 'all' OR ps.scenario_code = {{scenario_filter}})\n  AND fp.is_deleted = false\nORDER BY ps.display_order ASC, fp.projection_year ASC;",
+          "template-tags": {
+            "city_filter": {
+              "id": "city_filter",
+              "name": "city_filter",
+              "type": "text",
+              "default": "Vallejo"
+            },
+            "base_year": {
+              "id": "base_year",
+              "name": "base_year",
+              "type": "number",
+              "default": "2024"
+            },
+            "scenario_filter": {
+              "id": "scenario_filter",
+              "name": "scenario_filter",
+              "type": "text",
+              "default": "all"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "total_revenues": {
+            "number_style": "currency",
+            "currency": "USD",
+            "compact": true
+          },
+          "total_expenditures": {
+            "number_style": "currency",
+            "currency": "USD",
+            "compact": true
+          },
+          "operating_surplus_deficit": {
+            "number_style": "currency",
+            "currency": "USD",
+            "compact": true
+          },
+          "operating_margin_percent": {
+            "number_style": "percent",
+            "decimals": 1
+          },
+          "ending_fund_balance": {
+            "number_style": "currency",
+            "currency": "USD",
+            "compact": true
+          }
+        },
+        "colors": {
+          "base": "#2196F3",
+          "optimistic": "#4CAF50",
+          "pessimistic": "#F44336"
+        }
+      }
+    },
+    {
+      "id": "pr2",
+      "name": "Fund Balance Projection by Scenario",
+      "description": "Projected fund balance trajectory showing when reserves may be depleted",
+      "visualization": {
+        "type": "area",
+        "stacked": false,
+        "x_axis": "projection_year",
+        "y_axis": "ending_fund_balance",
+        "series": "scenario_name"
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "SELECT\n  fp.projection_year,\n  ps.scenario_name,\n  ps.scenario_code,\n  fp.beginning_fund_balance,\n  fp.ending_fund_balance,\n  fp.fund_balance_ratio,\n  fp.is_depleting_reserves,\n  fp.reserves_below_minimum,\n  fp.is_fiscal_cliff,\n  CASE\n    WHEN fp.ending_fund_balance < 0 THEN 'Depleted'\n    WHEN fp.fund_balance_ratio < 0.05 THEN 'Critical'\n    WHEN fp.fund_balance_ratio < 0.10 THEN 'Below Minimum'\n    WHEN fp.fund_balance_ratio < 0.15 THEN 'Adequate'\n    ELSE 'Healthy'\n  END AS reserve_status\nFROM financial_projections fp\nJOIN projection_scenarios ps ON fp.scenario_id = ps.id\nJOIN cities c ON fp.city_id = c.id\nJOIN fiscal_years fy ON fp.base_fiscal_year_id = fy.id\nWHERE c.name = {{city_filter}}\n  AND fy.year = {{base_year}}\n  AND ({{scenario_filter}} = 'all' OR ps.scenario_code = {{scenario_filter}})\n  AND fp.is_deleted = false\nORDER BY ps.display_order ASC, fp.projection_year ASC;",
+          "template-tags": {
+            "city_filter": {
+              "id": "city_filter",
+              "name": "city_filter",
+              "type": "text",
+              "default": "Vallejo"
+            },
+            "base_year": {
+              "id": "base_year",
+              "name": "base_year",
+              "type": "number",
+              "default": "2024"
+            },
+            "scenario_filter": {
+              "id": "scenario_filter",
+              "name": "scenario_filter",
+              "type": "text",
+              "default": "all"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "ending_fund_balance": {
+            "number_style": "currency",
+            "currency": "USD",
+            "compact": true
+          },
+          "beginning_fund_balance": {
+            "number_style": "currency",
+            "currency": "USD",
+            "compact": true
+          },
+          "fund_balance_ratio": {
+            "number_style": "percent",
+            "decimals": 1
+          }
+        },
+        "goal_line": {
+          "value": 0,
+          "label": "Zero Reserves (Fiscal Cliff)",
+          "color": "#D32F2F"
+        },
+        "colors": {
+          "Base Case": "#2196F3",
+          "Optimistic": "#4CAF50",
+          "Pessimistic": "#F44336"
+        }
+      }
+    },
+    {
+      "id": "pr3",
+      "name": "Fiscal Cliff Analysis",
+      "description": "Identifies when fiscal crisis occurs (reserves exhausted) under different scenarios",
+      "visualization": {
+        "type": "table",
+        "sortable": true,
+        "conditional_formatting": true
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "SELECT\n  ps.scenario_name,\n  fca.has_fiscal_cliff,\n  fca.fiscal_cliff_year,\n  fca.years_until_cliff,\n  fca.reserves_exhausted_year,\n  fca.cumulative_deficit_at_cliff,\n  fca.severity,\n  fca.revenue_increase_needed_percent,\n  fca.expenditure_decrease_needed_percent,\n  fca.summary\nFROM fiscal_cliff_analyses fca\nJOIN projection_scenarios ps ON fca.scenario_id = ps.id\nJOIN cities c ON fca.city_id = c.id\nJOIN fiscal_years fy ON fca.base_fiscal_year_id = fy.id\nWHERE c.name = {{city_filter}}\n  AND fy.year = {{base_year}}\n  AND ({{scenario_filter}} = 'all' OR ps.scenario_code = {{scenario_filter}})\n  AND fca.is_deleted = false\nORDER BY ps.display_order ASC;",
+          "template-tags": {
+            "city_filter": {
+              "id": "city_filter",
+              "name": "city_filter",
+              "type": "text",
+              "default": "Vallejo"
+            },
+            "base_year": {
+              "id": "base_year",
+              "name": "base_year",
+              "type": "number",
+              "default": "2024"
+            },
+            "scenario_filter": {
+              "id": "scenario_filter",
+              "name": "scenario_filter",
+              "type": "text",
+              "default": "all"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "cumulative_deficit_at_cliff": {
+            "number_style": "currency",
+            "currency": "USD"
+          },
+          "revenue_increase_needed_percent": {
+            "number_style": "percent",
+            "decimals": 1
+          },
+          "expenditure_decrease_needed_percent": {
+            "number_style": "percent",
+            "decimals": 1
+          }
+        },
+        "conditional_formatting": {
+          "has_fiscal_cliff": {
+            "true": {
+              "background": "#FFEBEE",
+              "text": "#C62828"
+            },
+            "false": {
+              "background": "#E8F5E9",
+              "text": "#2E7D32"
+            }
+          },
+          "severity": {
+            "immediate": {
+              "background": "#D32F2F",
+              "text": "#FFFFFF"
+            },
+            "near_term": {
+              "background": "#FF5722",
+              "text": "#FFFFFF"
+            },
+            "long_term": {
+              "background": "#FFC107",
+              "text": "#000000"
+            },
+            "none": {
+              "background": "#4CAF50",
+              "text": "#FFFFFF"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "pr4",
+      "name": "Pension Cost Growth Projection",
+      "description": "Projected pension costs over 10 years showing THE key driver of expenditure growth",
+      "visualization": {
+        "type": "area",
+        "stacked": true,
+        "x_axis": "projection_year",
+        "y_axis": "amount"
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "SELECT\n  fp.projection_year,\n  ps.scenario_name,\n  fp.pension_costs_projected,\n  fp.personnel_costs_projected,\n  fp.other_costs_projected,\n  (fp.pension_costs_projected / NULLIF(fp.total_expenditures_projected, 0) * 100) AS pension_share_of_budget,\n  (fp.pension_costs_projected / NULLIF(fp.total_revenues_projected, 0) * 100) AS pension_share_of_revenue\nFROM financial_projections fp\nJOIN projection_scenarios ps ON fp.scenario_id = ps.id\nJOIN cities c ON fp.city_id = c.id\nJOIN fiscal_years fy ON fp.base_fiscal_year_id = fy.id\nWHERE c.name = {{city_filter}}\n  AND fy.year = {{base_year}}\n  AND ps.scenario_code = COALESCE(NULLIF({{scenario_filter}}, 'all'), 'base')\n  AND fp.is_deleted = false\nORDER BY fp.projection_year ASC;",
+          "template-tags": {
+            "city_filter": {
+              "id": "city_filter",
+              "name": "city_filter",
+              "type": "text",
+              "default": "Vallejo"
+            },
+            "base_year": {
+              "id": "base_year",
+              "name": "base_year",
+              "type": "number",
+              "default": "2024"
+            },
+            "scenario_filter": {
+              "id": "scenario_filter",
+              "name": "scenario_filter",
+              "type": "text",
+              "default": "base"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "pension_costs_projected": {
+            "number_style": "currency",
+            "currency": "USD",
+            "compact": true
+          },
+          "personnel_costs_projected": {
+            "number_style": "currency",
+            "currency": "USD",
+            "compact": true
+          },
+          "other_costs_projected": {
+            "number_style": "currency",
+            "currency": "USD",
+            "compact": true
+          },
+          "pension_share_of_budget": {
+            "number_style": "percent",
+            "decimals": 1
+          }
+        },
+        "colors": {
+          "pension_costs_projected": "#9C27B0",
+          "personnel_costs_projected": "#FFC107",
+          "other_costs_projected": "#2196F3"
+        }
+      }
+    },
+    {
+      "id": "pr5",
+      "name": "Scenario Assumptions Comparison",
+      "description": "Key assumptions driving each projection scenario",
+      "visualization": {
+        "type": "table",
+        "sortable": true
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "SELECT\n  ps.scenario_name,\n  sa.assumption_category,\n  sa.assumption_name,\n  sa.assumption_value,\n  sa.assumption_numeric_value,\n  sa.description,\n  sa.rationale,\n  sa.source\nFROM scenario_assumptions sa\nJOIN projection_scenarios ps ON sa.scenario_id = ps.id\nWHERE ps.is_active = true\n  AND ({{scenario_filter}} = 'all' OR ps.scenario_code = {{scenario_filter}})\n  AND sa.is_deleted = false\nORDER BY ps.display_order ASC, sa.assumption_category ASC, sa.assumption_name ASC;",
+          "template-tags": {
+            "scenario_filter": {
+              "id": "scenario_filter",
+              "name": "scenario_filter",
+              "type": "text",
+              "default": "all"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "assumption_numeric_value": {
+            "number_style": "decimal",
+            "decimals": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "pr6",
+      "name": "Sensitivity Analysis Summary",
+      "description": "What changes would avoid fiscal cliff? Revenue increases vs expenditure decreases needed",
+      "visualization": {
+        "type": "bar",
+        "x_axis": "scenario_name",
+        "y_axis": "percent_change"
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "SELECT\n  ps.scenario_name,\n  fca.revenue_increase_needed_percent AS revenue_increase_needed,\n  fca.expenditure_decrease_needed_percent AS expenditure_decrease_needed,\n  fca.fiscal_cliff_year,\n  fca.years_until_cliff,\n  CASE\n    WHEN fca.has_fiscal_cliff = false THEN 'No Cliff - Sustainable'\n    WHEN fca.revenue_increase_needed_percent < 5 THEN 'Easily Avoidable'\n    WHEN fca.revenue_increase_needed_percent < 10 THEN 'Challenging'\n    WHEN fca.revenue_increase_needed_percent < 20 THEN 'Very Difficult'\n    ELSE 'Structural Crisis'\n  END AS difficulty_level\nFROM fiscal_cliff_analyses fca\nJOIN projection_scenarios ps ON fca.scenario_id = ps.id\nJOIN cities c ON fca.city_id = c.id\nJOIN fiscal_years fy ON fca.base_fiscal_year_id = fy.id\nWHERE c.name = {{city_filter}}\n  AND fy.year = {{base_year}}\n  AND ({{scenario_filter}} = 'all' OR ps.scenario_code = {{scenario_filter}})\n  AND fca.is_deleted = false\nORDER BY ps.display_order ASC;",
+          "template-tags": {
+            "city_filter": {
+              "id": "city_filter",
+              "name": "city_filter",
+              "type": "text",
+              "default": "Vallejo"
+            },
+            "base_year": {
+              "id": "base_year",
+              "name": "base_year",
+              "type": "number",
+              "default": "2024"
+            },
+            "scenario_filter": {
+              "id": "scenario_filter",
+              "name": "scenario_filter",
+              "type": "text",
+              "default": "all"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "revenue_increase_needed": {
+            "number_style": "percent",
+            "decimals": 1
+          },
+          "expenditure_decrease_needed": {
+            "number_style": "percent",
+            "decimals": 1
+          }
+        },
+        "colors": {
+          "revenue_increase_needed": "#4CAF50",
+          "expenditure_decrease_needed": "#F44336"
+        }
+      }
+    }
+  ],
+  "layout": {
+    "width": 12,
+    "cards": [
+      {
+        "id": "card_pr3",
+        "question_id": "pr3",
+        "row": 0,
+        "col": 0,
+        "size_x": 12,
+        "size_y": 3
+      },
+      {
+        "id": "card_pr1",
+        "question_id": "pr1",
+        "row": 3,
+        "col": 0,
+        "size_x": 6,
+        "size_y": 5
+      },
+      {
+        "id": "card_pr2",
+        "question_id": "pr2",
+        "row": 3,
+        "col": 6,
+        "size_x": 6,
+        "size_y": 5
+      },
+      {
+        "id": "card_pr4",
+        "question_id": "pr4",
+        "row": 8,
+        "col": 0,
+        "size_x": 6,
+        "size_y": 4
+      },
+      {
+        "id": "card_pr6",
+        "question_id": "pr6",
+        "row": 8,
+        "col": 6,
+        "size_x": 6,
+        "size_y": 4
+      },
+      {
+        "id": "card_pr5",
+        "question_id": "pr5",
+        "row": 12,
+        "col": 0,
+        "size_x": 12,
+        "size_y": 4
+      }
+    ]
+  },
+  "public_access": {
+    "enabled": true,
+    "embedding_enabled": true,
+    "signed_embedding": false,
+    "auto_refresh_interval": 86400
+  },
+  "metadata": {
+    "created_by": "IBCo System",
+    "version": "1.0",
+    "last_updated": "2025-11-12",
+    "data_source": "PostgreSQL - IBCo Production Database",
+    "notes": "10-year forward projections under multiple scenarios. Identifies fiscal cliff year when reserves exhausted. Based on current trends plus scenario-specific assumptions. These are projections, not predictions - actual outcomes depend on policy choices and economic conditions."
+  }
+}

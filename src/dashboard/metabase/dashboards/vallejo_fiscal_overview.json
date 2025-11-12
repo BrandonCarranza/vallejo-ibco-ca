@@ -1,0 +1,504 @@
+{
+  "name": "Vallejo Fiscal Overview",
+  "description": "High-level view of Vallejo's fiscal health including revenue trends, expenditure patterns, fund balances, and risk scores over time.",
+  "dashboard_version": "1.0",
+  "created_for": "IBCo Vallejo Console - Public Dashboard",
+  "parameters": [
+    {
+      "id": "city_filter",
+      "name": "City",
+      "type": "category",
+      "default": "Vallejo",
+      "sql_field": "cities.name"
+    },
+    {
+      "id": "year_range",
+      "name": "Fiscal Year Range",
+      "type": "date/range",
+      "default": "all",
+      "sql_field": "fiscal_years.year"
+    }
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "name": "Revenue Trends by Year",
+      "description": "Total actual revenues by fiscal year, showing historical revenue trajectory",
+      "visualization": {
+        "type": "line",
+        "x_axis": "fiscal_year",
+        "y_axis": "total_revenue",
+        "color": "#4CAF50"
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "SELECT\n  fy.year AS fiscal_year,\n  SUM(r.actual_amount) AS total_revenue,\n  SUM(CASE WHEN rc.is_recurring = true THEN r.actual_amount ELSE 0 END) AS recurring_revenue,\n  SUM(CASE WHEN rc.is_recurring = false THEN r.actual_amount ELSE 0 END) AS one_time_revenue\nFROM fiscal_years fy\nJOIN cities c ON fy.city_id = c.id\nLEFT JOIN revenues r ON r.fiscal_year_id = fy.id\nLEFT JOIN revenue_categories rc ON r.category_id = rc.id\nWHERE c.name = {{city_filter}}\n  AND fy.year >= {{year_start}}\n  AND fy.year <= {{year_end}}\n  AND r.is_deleted = false\nGROUP BY fy.year\nORDER BY fy.year ASC;",
+          "template-tags": {
+            "city_filter": {
+              "id": "city_filter",
+              "name": "city_filter",
+              "display-name": "City",
+              "type": "text",
+              "default": "Vallejo"
+            },
+            "year_start": {
+              "id": "year_start",
+              "name": "year_start",
+              "display-name": "Year Start",
+              "type": "number",
+              "default": "2020"
+            },
+            "year_end": {
+              "id": "year_end",
+              "name": "year_end",
+              "display-name": "Year End",
+              "type": "number",
+              "default": "2030"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "total_revenue": {
+            "number_style": "currency",
+            "currency": "USD",
+            "currency_style": "symbol"
+          },
+          "recurring_revenue": {
+            "number_style": "currency"
+          },
+          "one_time_revenue": {
+            "number_style": "currency"
+          }
+        }
+      }
+    },
+    {
+      "id": "q2",
+      "name": "Expenditure Trends by Category",
+      "description": "Total expenditures broken down by major category over time",
+      "visualization": {
+        "type": "area",
+        "stacked": true,
+        "x_axis": "fiscal_year",
+        "y_axis": "amount",
+        "series": "category"
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "SELECT\n  fy.year AS fiscal_year,\n  ec.category_level1 AS category,\n  SUM(e.actual_amount) AS amount\nFROM fiscal_years fy\nJOIN cities c ON fy.city_id = c.id\nLEFT JOIN expenditures e ON e.fiscal_year_id = fy.id\nLEFT JOIN expenditure_categories ec ON e.category_id = ec.id\nWHERE c.name = {{city_filter}}\n  AND fy.year >= {{year_start}}\n  AND fy.year <= {{year_end}}\n  AND e.is_deleted = false\nGROUP BY fy.year, ec.category_level1\nORDER BY fy.year ASC, category ASC;",
+          "template-tags": {
+            "city_filter": {
+              "id": "city_filter",
+              "name": "city_filter",
+              "type": "text",
+              "default": "Vallejo"
+            },
+            "year_start": {
+              "id": "year_start",
+              "name": "year_start",
+              "type": "number",
+              "default": "2020"
+            },
+            "year_end": {
+              "id": "year_end",
+              "name": "year_end",
+              "type": "number",
+              "default": "2030"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "amount": {
+            "number_style": "currency",
+            "currency": "USD"
+          }
+        },
+        "colors": {
+          "Public Safety": "#FF5722",
+          "Personnel": "#FFC107",
+          "Pension Costs": "#9C27B0",
+          "Debt Service": "#F44336",
+          "Capital": "#2196F3",
+          "Other": "#9E9E9E"
+        }
+      }
+    },
+    {
+      "id": "q3",
+      "name": "Fund Balance Trajectory",
+      "description": "General fund balance over time showing reserve levels and trends",
+      "visualization": {
+        "type": "combo",
+        "series": [
+          {
+            "name": "Total Fund Balance",
+            "type": "line",
+            "y_axis": "left"
+          },
+          {
+            "name": "Fund Balance Ratio",
+            "type": "line",
+            "y_axis": "right"
+          }
+        ]
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "SELECT\n  fy.year AS fiscal_year,\n  fb.total_fund_balance,\n  fb.fund_balance_ratio,\n  fb.unassigned AS unassigned_fund_balance,\n  fb.days_of_cash,\n  CASE\n    WHEN fb.fund_balance_ratio >= 0.15 THEN 'Healthy'\n    WHEN fb.fund_balance_ratio >= 0.10 THEN 'Adequate'\n    WHEN fb.fund_balance_ratio >= 0.05 THEN 'Warning'\n    ELSE 'Critical'\n  END AS health_status\nFROM fiscal_years fy\nJOIN cities c ON fy.city_id = c.id\nLEFT JOIN fund_balances fb ON fb.fiscal_year_id = fy.id\nWHERE c.name = {{city_filter}}\n  AND fy.year >= {{year_start}}\n  AND fy.year <= {{year_end}}\n  AND fb.fund_type = 'General'\n  AND fb.is_deleted = false\nORDER BY fy.year ASC;",
+          "template-tags": {
+            "city_filter": {
+              "id": "city_filter",
+              "name": "city_filter",
+              "type": "text",
+              "default": "Vallejo"
+            },
+            "year_start": {
+              "id": "year_start",
+              "name": "year_start",
+              "type": "number",
+              "default": "2020"
+            },
+            "year_end": {
+              "id": "year_end",
+              "name": "year_end",
+              "type": "number",
+              "default": "2030"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "total_fund_balance": {
+            "number_style": "currency",
+            "currency": "USD"
+          },
+          "fund_balance_ratio": {
+            "number_style": "percent",
+            "decimals": 1
+          },
+          "unassigned_fund_balance": {
+            "number_style": "currency"
+          }
+        },
+        "goal_line": {
+          "value": 0.10,
+          "label": "Minimum Recommended (10%)",
+          "color": "#FFC107"
+        }
+      }
+    },
+    {
+      "id": "q4",
+      "name": "Risk Score Progression",
+      "description": "Overall fiscal risk score over time showing improving/deteriorating fiscal health",
+      "visualization": {
+        "type": "line",
+        "x_axis": "fiscal_year",
+        "y_axis": "overall_score",
+        "goal_line": true
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "SELECT\n  fy.year AS fiscal_year,\n  rs.overall_score,\n  rs.risk_level,\n  rs.liquidity_score,\n  rs.structural_balance_score,\n  rs.pension_stress_score,\n  rs.revenue_sustainability_score,\n  rs.debt_burden_score,\n  rs.data_completeness_percent\nFROM fiscal_years fy\nJOIN cities c ON fy.city_id = c.id\nLEFT JOIN risk_scores rs ON rs.fiscal_year_id = fy.id\nWHERE c.name = {{city_filter}}\n  AND fy.year >= {{year_start}}\n  AND fy.year <= {{year_end}}\n  AND rs.is_deleted = false\nORDER BY fy.year ASC;",
+          "template-tags": {
+            "city_filter": {
+              "id": "city_filter",
+              "name": "city_filter",
+              "type": "text",
+              "default": "Vallejo"
+            },
+            "year_start": {
+              "id": "year_start",
+              "name": "year_start",
+              "type": "number",
+              "default": "2020"
+            },
+            "year_end": {
+              "id": "year_end",
+              "name": "year_end",
+              "type": "number",
+              "default": "2030"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "overall_score": {
+            "number_style": "decimal",
+            "decimals": 1
+          }
+        },
+        "goal_lines": [
+          {
+            "value": 25,
+            "label": "Low Risk Threshold",
+            "color": "#4CAF50"
+          },
+          {
+            "value": 50,
+            "label": "Moderate Risk Threshold",
+            "color": "#FFC107"
+          },
+          {
+            "value": 75,
+            "label": "High Risk Threshold",
+            "color": "#FF5722"
+          }
+        ],
+        "color_mapping": {
+          "low": "#4CAF50",
+          "moderate": "#FFC107",
+          "high": "#FF5722",
+          "severe": "#D32F2F"
+        }
+      }
+    },
+    {
+      "id": "q5",
+      "name": "Structural Balance (Revenues vs Expenditures)",
+      "description": "Year-over-year comparison of total revenues vs expenditures showing operating surplus/deficit",
+      "visualization": {
+        "type": "combo",
+        "series": [
+          {
+            "name": "Total Revenues",
+            "type": "bar",
+            "color": "#4CAF50"
+          },
+          {
+            "name": "Total Expenditures",
+            "type": "bar",
+            "color": "#F44336"
+          },
+          {
+            "name": "Operating Surplus/Deficit",
+            "type": "line",
+            "color": "#2196F3"
+          }
+        ]
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "WITH revenue_totals AS (\n  SELECT\n    fy.id AS fy_id,\n    fy.year,\n    SUM(r.actual_amount) AS total_revenues\n  FROM fiscal_years fy\n  JOIN cities c ON fy.city_id = c.id\n  LEFT JOIN revenues r ON r.fiscal_year_id = fy.id\n  WHERE c.name = {{city_filter}}\n    AND r.is_deleted = false\n  GROUP BY fy.id, fy.year\n),\nexpenditure_totals AS (\n  SELECT\n    fy.id AS fy_id,\n    fy.year,\n    SUM(e.actual_amount) AS total_expenditures\n  FROM fiscal_years fy\n  JOIN cities c ON fy.city_id = c.id\n  LEFT JOIN expenditures e ON e.fiscal_year_id = fy.id\n  WHERE c.name = {{city_filter}}\n    AND e.is_deleted = false\n  GROUP BY fy.id, fy.year\n)\nSELECT\n  rt.year AS fiscal_year,\n  rt.total_revenues,\n  et.total_expenditures,\n  (rt.total_revenues - et.total_expenditures) AS operating_balance,\n  CASE\n    WHEN rt.total_revenues > et.total_expenditures THEN 'Surplus'\n    WHEN rt.total_revenues = et.total_expenditures THEN 'Balanced'\n    ELSE 'Deficit'\n  END AS balance_status,\n  ((rt.total_revenues - et.total_expenditures) / rt.total_revenues * 100) AS margin_percent\nFROM revenue_totals rt\nJOIN expenditure_totals et ON rt.fy_id = et.fy_id\nWHERE rt.year >= {{year_start}}\n  AND rt.year <= {{year_end}}\nORDER BY rt.year ASC;",
+          "template-tags": {
+            "city_filter": {
+              "id": "city_filter",
+              "name": "city_filter",
+              "type": "text",
+              "default": "Vallejo"
+            },
+            "year_start": {
+              "id": "year_start",
+              "name": "year_start",
+              "type": "number",
+              "default": "2020"
+            },
+            "year_end": {
+              "id": "year_end",
+              "name": "year_end",
+              "type": "number",
+              "default": "2030"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "total_revenues": {
+            "number_style": "currency",
+            "currency": "USD"
+          },
+          "total_expenditures": {
+            "number_style": "currency",
+            "currency": "USD"
+          },
+          "operating_balance": {
+            "number_style": "currency",
+            "currency": "USD"
+          },
+          "margin_percent": {
+            "number_style": "percent",
+            "decimals": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "q6",
+      "name": "Key Fiscal Metrics Summary",
+      "description": "Latest fiscal year key metrics at-a-glance",
+      "visualization": {
+        "type": "scalar",
+        "layout": "grid"
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "WITH latest_fy AS (\n  SELECT id, year\n  FROM fiscal_years fy\n  JOIN cities c ON fy.city_id = c.id\n  WHERE c.name = {{city_filter}}\n  ORDER BY year DESC\n  LIMIT 1\n),\nrevenue_total AS (\n  SELECT SUM(r.actual_amount) AS total_revenues\n  FROM revenues r\n  WHERE r.fiscal_year_id = (SELECT id FROM latest_fy)\n    AND r.is_deleted = false\n),\nexpenditure_total AS (\n  SELECT SUM(e.actual_amount) AS total_expenditures\n  FROM expenditures e\n  WHERE e.fiscal_year_id = (SELECT id FROM latest_fy)\n    AND e.is_deleted = false\n),\nfund_balance_data AS (\n  SELECT\n    total_fund_balance,\n    fund_balance_ratio\n  FROM fund_balances\n  WHERE fiscal_year_id = (SELECT id FROM latest_fy)\n    AND fund_type = 'General'\n    AND is_deleted = false\n  LIMIT 1\n),\nrisk_data AS (\n  SELECT overall_score, risk_level\n  FROM risk_scores\n  WHERE fiscal_year_id = (SELECT id FROM latest_fy)\n    AND is_deleted = false\n  ORDER BY calculation_date DESC\n  LIMIT 1\n)\nSELECT\n  (SELECT year FROM latest_fy) AS fiscal_year,\n  (SELECT total_revenues FROM revenue_total) AS total_revenues,\n  (SELECT total_expenditures FROM expenditure_total) AS total_expenditures,\n  ((SELECT total_revenues FROM revenue_total) - (SELECT total_expenditures FROM expenditure_total)) AS operating_balance,\n  (SELECT total_fund_balance FROM fund_balance_data) AS fund_balance,\n  (SELECT fund_balance_ratio FROM fund_balance_data) AS fund_balance_ratio,\n  (SELECT overall_score FROM risk_data) AS risk_score,\n  (SELECT risk_level FROM risk_data) AS risk_level;",
+          "template-tags": {
+            "city_filter": {
+              "id": "city_filter",
+              "name": "city_filter",
+              "type": "text",
+              "default": "Vallejo"
+            }
+          }
+        }
+      },
+      "display": {
+        "cards": [
+          {
+            "title": "Latest Fiscal Year",
+            "field": "fiscal_year",
+            "type": "heading"
+          },
+          {
+            "title": "Total Revenues",
+            "field": "total_revenues",
+            "format": "currency"
+          },
+          {
+            "title": "Total Expenditures",
+            "field": "total_expenditures",
+            "format": "currency"
+          },
+          {
+            "title": "Operating Balance",
+            "field": "operating_balance",
+            "format": "currency",
+            "color_rules": [
+              {
+                "condition": "> 0",
+                "color": "#4CAF50"
+              },
+              {
+                "condition": "< 0",
+                "color": "#F44336"
+              }
+            ]
+          },
+          {
+            "title": "Fund Balance",
+            "field": "fund_balance",
+            "format": "currency"
+          },
+          {
+            "title": "Fund Balance Ratio",
+            "field": "fund_balance_ratio",
+            "format": "percent"
+          },
+          {
+            "title": "Fiscal Risk Score",
+            "field": "risk_score",
+            "format": "decimal",
+            "color_rules": [
+              {
+                "condition": "<= 25",
+                "color": "#4CAF50",
+                "label": "Low Risk"
+              },
+              {
+                "condition": "<= 50",
+                "color": "#FFC107",
+                "label": "Moderate Risk"
+              },
+              {
+                "condition": "<= 75",
+                "color": "#FF5722",
+                "label": "High Risk"
+              },
+              {
+                "condition": "> 75",
+                "color": "#D32F2F",
+                "label": "Severe Risk"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "layout": {
+    "width": 12,
+    "cards": [
+      {
+        "id": "card_q6",
+        "question_id": "q6",
+        "row": 0,
+        "col": 0,
+        "size_x": 12,
+        "size_y": 3
+      },
+      {
+        "id": "card_q1",
+        "question_id": "q1",
+        "row": 3,
+        "col": 0,
+        "size_x": 6,
+        "size_y": 4
+      },
+      {
+        "id": "card_q2",
+        "question_id": "q2",
+        "row": 3,
+        "col": 6,
+        "size_x": 6,
+        "size_y": 4
+      },
+      {
+        "id": "card_q5",
+        "question_id": "q5",
+        "row": 7,
+        "col": 0,
+        "size_x": 6,
+        "size_y": 4
+      },
+      {
+        "id": "card_q3",
+        "question_id": "q3",
+        "row": 7,
+        "col": 6,
+        "size_x": 6,
+        "size_y": 4
+      },
+      {
+        "id": "card_q4",
+        "question_id": "q4",
+        "row": 11,
+        "col": 0,
+        "size_x": 12,
+        "size_y": 4
+      }
+    ]
+  },
+  "public_access": {
+    "enabled": true,
+    "embedding_enabled": true,
+    "signed_embedding": false,
+    "auto_refresh_interval": 86400
+  },
+  "metadata": {
+    "created_by": "IBCo System",
+    "version": "1.0",
+    "last_updated": "2025-11-12",
+    "data_source": "PostgreSQL - IBCo Production Database",
+    "notes": "Public-facing dashboard showing Vallejo's fiscal health trends. All data sourced from manually-entered CAFR data with complete lineage tracking."
+  }
+}
