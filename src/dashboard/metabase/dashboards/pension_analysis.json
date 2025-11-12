@@ -1,0 +1,510 @@
+{
+  "name": "Pension Analysis",
+  "description": "Deep dive into Vallejo's pension obligations, funded status, contribution trends, and long-term fiscal impact. Critical for understanding the primary driver of municipal fiscal stress in California.",
+  "dashboard_version": "1.0",
+  "created_for": "IBCo Vallejo Console - Pension Deep Dive",
+  "parameters": [
+    {
+      "id": "city_filter",
+      "name": "City",
+      "type": "category",
+      "default": "Vallejo",
+      "sql_field": "cities.name"
+    },
+    {
+      "id": "year_range",
+      "name": "Fiscal Year Range",
+      "type": "date/range",
+      "default": "all",
+      "sql_field": "fiscal_years.year"
+    }
+  ],
+  "questions": [
+    {
+      "id": "p1",
+      "name": "Pension Funded Ratio Trend",
+      "description": "Funded ratio over time for all pension plans - track toward or away from full funding",
+      "visualization": {
+        "type": "line",
+        "x_axis": "fiscal_year",
+        "y_axis": "funded_ratio",
+        "series": "plan_name",
+        "goal_line": true
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "SELECT\n  fy.year AS fiscal_year,\n  pp.plan_name,\n  pp.funded_ratio,\n  pp.total_pension_liability,\n  pp.fiduciary_net_position,\n  pp.net_pension_liability,\n  pp.unfunded_actuarial_liability,\n  CASE\n    WHEN pp.funded_ratio >= 0.90 THEN 'Well Funded'\n    WHEN pp.funded_ratio >= 0.70 THEN 'Adequately Funded'\n    WHEN pp.funded_ratio >= 0.50 THEN 'Underfunded'\n    ELSE 'Severely Underfunded'\n  END AS funding_status\nFROM fiscal_years fy\nJOIN cities c ON fy.city_id = c.id\nLEFT JOIN pension_plans pp ON pp.fiscal_year_id = fy.id\nWHERE c.name = {{city_filter}}\n  AND fy.year >= {{year_start}}\n  AND fy.year <= {{year_end}}\n  AND pp.is_deleted = false\nORDER BY fy.year ASC, pp.plan_name ASC;",
+          "template-tags": {
+            "city_filter": {
+              "id": "city_filter",
+              "name": "city_filter",
+              "type": "text",
+              "default": "Vallejo"
+            },
+            "year_start": {
+              "id": "year_start",
+              "name": "year_start",
+              "type": "number",
+              "default": "2020"
+            },
+            "year_end": {
+              "id": "year_end",
+              "name": "year_end",
+              "type": "number",
+              "default": "2030"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "funded_ratio": {
+            "number_style": "percent",
+            "decimals": 1
+          },
+          "total_pension_liability": {
+            "number_style": "currency",
+            "currency": "USD"
+          },
+          "fiduciary_net_position": {
+            "number_style": "currency",
+            "currency": "USD"
+          },
+          "net_pension_liability": {
+            "number_style": "currency",
+            "currency": "USD"
+          },
+          "unfunded_actuarial_liability": {
+            "number_style": "currency",
+            "currency": "USD"
+          }
+        },
+        "goal_lines": [
+          {
+            "value": 1.0,
+            "label": "100% Funded (Fully Funded)",
+            "color": "#4CAF50"
+          },
+          {
+            "value": 0.70,
+            "label": "70% Funded (Minimum Adequate)",
+            "color": "#FFC107"
+          }
+        ],
+        "colors": {
+          "Miscellaneous": "#2196F3",
+          "Safety": "#FF5722",
+          "PEPRA": "#4CAF50"
+        }
+      }
+    },
+    {
+      "id": "p2",
+      "name": "Unfunded Liability Growth vs City Revenues",
+      "description": "UAL magnitude compared to total city revenues - shows burden relative to fiscal capacity",
+      "visualization": {
+        "type": "combo",
+        "series": [
+          {
+            "name": "Total UAL",
+            "type": "bar",
+            "y_axis": "left",
+            "color": "#F44336"
+          },
+          {
+            "name": "Total Revenues",
+            "type": "bar",
+            "y_axis": "left",
+            "color": "#4CAF50"
+          },
+          {
+            "name": "UAL as % of Revenues",
+            "type": "line",
+            "y_axis": "right",
+            "color": "#2196F3"
+          }
+        ]
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "WITH pension_ual AS (\n  SELECT\n    fy.id AS fy_id,\n    fy.year,\n    SUM(pp.unfunded_actuarial_liability) AS total_ual,\n    SUM(pp.net_pension_liability) AS total_npl\n  FROM fiscal_years fy\n  JOIN cities c ON fy.city_id = c.id\n  LEFT JOIN pension_plans pp ON pp.fiscal_year_id = fy.id\n  WHERE c.name = {{city_filter}}\n    AND pp.is_deleted = false\n  GROUP BY fy.id, fy.year\n),\nrevenue_totals AS (\n  SELECT\n    fy.id AS fy_id,\n    fy.year,\n    SUM(r.actual_amount) AS total_revenues\n  FROM fiscal_years fy\n  JOIN cities c ON fy.city_id = c.id\n  LEFT JOIN revenues r ON r.fiscal_year_id = fy.id\n  WHERE c.name = {{city_filter}}\n    AND r.is_deleted = false\n  GROUP BY fy.id, fy.year\n)\nSELECT\n  p.year AS fiscal_year,\n  p.total_ual,\n  p.total_npl,\n  r.total_revenues,\n  (p.total_ual / NULLIF(r.total_revenues, 0) * 100) AS ual_to_revenue_percent,\n  CASE\n    WHEN (p.total_ual / NULLIF(r.total_revenues, 0)) < 1.0 THEN 'Manageable'\n    WHEN (p.total_ual / NULLIF(r.total_revenues, 0)) < 3.0 THEN 'Concerning'\n    WHEN (p.total_ual / NULLIF(r.total_revenues, 0)) < 5.0 THEN 'Severe'\n    ELSE 'Critical'\n  END AS burden_level\nFROM pension_ual p\nJOIN revenue_totals r ON p.fy_id = r.fy_id\nWHERE p.year >= {{year_start}}\n  AND p.year <= {{year_end}}\nORDER BY p.year ASC;",
+          "template-tags": {
+            "city_filter": {
+              "id": "city_filter",
+              "name": "city_filter",
+              "type": "text",
+              "default": "Vallejo"
+            },
+            "year_start": {
+              "id": "year_start",
+              "name": "year_start",
+              "type": "number",
+              "default": "2020"
+            },
+            "year_end": {
+              "id": "year_end",
+              "name": "year_end",
+              "type": "number",
+              "default": "2030"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "total_ual": {
+            "number_style": "currency",
+            "currency": "USD",
+            "compact": true
+          },
+          "total_revenues": {
+            "number_style": "currency",
+            "currency": "USD",
+            "compact": true
+          },
+          "ual_to_revenue_percent": {
+            "number_style": "percent",
+            "decimals": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "p3",
+      "name": "Employer Contribution Burden (% of Payroll)",
+      "description": "Required employer pension contributions as percentage of covered payroll over time",
+      "visualization": {
+        "type": "line",
+        "x_axis": "fiscal_year",
+        "y_axis": "contribution_rate",
+        "series": "plan_name"
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "SELECT\n  fy.year AS fiscal_year,\n  pp.plan_name,\n  pp.total_employer_contribution,\n  pp.total_employer_contribution_percent AS contribution_rate,\n  pp.employer_normal_cost_percent AS normal_cost_rate,\n  pp.covered_payroll,\n  pp.ual_payment,\n  (pp.ual_payment / NULLIF(pp.total_employer_contribution, 0) * 100) AS ual_payment_pct_of_total\nFROM fiscal_years fy\nJOIN cities c ON fy.city_id = c.id\nLEFT JOIN pension_plans pp ON pp.fiscal_year_id = fy.id\nWHERE c.name = {{city_filter}}\n  AND fy.year >= {{year_start}}\n  AND fy.year <= {{year_end}}\n  AND pp.is_deleted = false\n  AND pp.total_employer_contribution_percent IS NOT NULL\nORDER BY fy.year ASC, pp.plan_name ASC;",
+          "template-tags": {
+            "city_filter": {
+              "id": "city_filter",
+              "name": "city_filter",
+              "type": "text",
+              "default": "Vallejo"
+            },
+            "year_start": {
+              "id": "year_start",
+              "name": "year_start",
+              "type": "number",
+              "default": "2020"
+            },
+            "year_end": {
+              "id": "year_end",
+              "name": "year_end",
+              "type": "number",
+              "default": "2030"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "contribution_rate": {
+            "number_style": "percent",
+            "decimals": 1
+          },
+          "normal_cost_rate": {
+            "number_style": "percent",
+            "decimals": 1
+          },
+          "total_employer_contribution": {
+            "number_style": "currency",
+            "currency": "USD"
+          },
+          "covered_payroll": {
+            "number_style": "currency",
+            "currency": "USD"
+          },
+          "ual_payment": {
+            "number_style": "currency",
+            "currency": "USD"
+          }
+        },
+        "goal_line": {
+          "value": 0.50,
+          "label": "50% of Payroll (Extreme Burden)",
+          "color": "#D32F2F"
+        }
+      }
+    },
+    {
+      "id": "p4",
+      "name": "Pension Costs as % of Total Budget",
+      "description": "Pension contributions as share of total expenditures - shows crowding out of other services",
+      "visualization": {
+        "type": "area",
+        "stacked": false,
+        "x_axis": "fiscal_year",
+        "y_axis": "pension_share_percent"
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "WITH pension_costs AS (\n  SELECT\n    fy.id AS fy_id,\n    fy.year,\n    SUM(pp.total_employer_contribution) AS total_pension_cost\n  FROM fiscal_years fy\n  JOIN cities c ON fy.city_id = c.id\n  LEFT JOIN pension_plans pp ON pp.fiscal_year_id = fy.id\n  WHERE c.name = {{city_filter}}\n    AND pp.is_deleted = false\n  GROUP BY fy.id, fy.year\n),\ntotal_expenditures AS (\n  SELECT\n    fy.id AS fy_id,\n    fy.year,\n    SUM(e.actual_amount) AS total_expend\n  FROM fiscal_years fy\n  JOIN cities c ON fy.city_id = c.id\n  LEFT JOIN expenditures e ON e.fiscal_year_id = fy.id\n  WHERE c.name = {{city_filter}}\n    AND e.is_deleted = false\n  GROUP BY fy.id, fy.year\n)\nSELECT\n  p.year AS fiscal_year,\n  p.total_pension_cost,\n  e.total_expend AS total_expenditures,\n  (p.total_pension_cost / NULLIF(e.total_expend, 0) * 100) AS pension_share_percent,\n  ((e.total_expend - p.total_pension_cost) / NULLIF(e.total_expend, 0) * 100) AS non_pension_share_percent,\n  CASE\n    WHEN (p.total_pension_cost / NULLIF(e.total_expend, 0)) < 0.15 THEN 'Manageable'\n    WHEN (p.total_pension_cost / NULLIF(e.total_expend, 0)) < 0.25 THEN 'Concerning'\n    WHEN (p.total_pension_cost / NULLIF(e.total_expend, 0)) < 0.35 THEN 'Severe'\n    ELSE 'Critical'\n  END AS impact_level\nFROM pension_costs p\nJOIN total_expenditures e ON p.fy_id = e.fy_id\nWHERE p.year >= {{year_start}}\n  AND p.year <= {{year_end}}\nORDER BY p.year ASC;",
+          "template-tags": {
+            "city_filter": {
+              "id": "city_filter",
+              "name": "city_filter",
+              "type": "text",
+              "default": "Vallejo"
+            },
+            "year_start": {
+              "id": "year_start",
+              "name": "year_start",
+              "type": "number",
+              "default": "2020"
+            },
+            "year_end": {
+              "id": "year_end",
+              "name": "year_end",
+              "type": "number",
+              "default": "2030"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "total_pension_cost": {
+            "number_style": "currency",
+            "currency": "USD"
+          },
+          "total_expenditures": {
+            "number_style": "currency",
+            "currency": "USD"
+          },
+          "pension_share_percent": {
+            "number_style": "percent",
+            "decimals": 1
+          },
+          "non_pension_share_percent": {
+            "number_style": "percent",
+            "decimals": 1
+          }
+        },
+        "goal_lines": [
+          {
+            "value": 15,
+            "label": "15% (Manageable)",
+            "color": "#FFC107"
+          },
+          {
+            "value": 25,
+            "label": "25% (Concerning)",
+            "color": "#FF5722"
+          },
+          {
+            "value": 35,
+            "label": "35% (Severe Crowding Out)",
+            "color": "#D32F2F"
+          }
+        ]
+      }
+    },
+    {
+      "id": "p5",
+      "name": "Actuarial Assumption Changes Impact",
+      "description": "Track changes in discount rate and other assumptions that drive liability spikes",
+      "visualization": {
+        "type": "table",
+        "sortable": true
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "SELECT\n  fy.year AS effective_fiscal_year,\n  pac.plan_name,\n  pac.assumption_type,\n  pac.old_value,\n  pac.new_value,\n  pac.impact_on_liability,\n  pac.impact_on_funded_ratio,\n  pac.reason,\n  pac.announced_date\nFROM pension_assumption_changes pac\nJOIN fiscal_years fy ON pac.effective_fiscal_year_id = fy.id\nJOIN cities c ON fy.city_id = c.id\nWHERE c.name = {{city_filter}}\n  AND fy.year >= {{year_start}}\n  AND fy.year <= {{year_end}}\n  AND pac.is_deleted = false\nORDER BY fy.year DESC, pac.announced_date DESC;",
+          "template-tags": {
+            "city_filter": {
+              "id": "city_filter",
+              "name": "city_filter",
+              "type": "text",
+              "default": "Vallejo"
+            },
+            "year_start": {
+              "id": "year_start",
+              "name": "year_start",
+              "type": "number",
+              "default": "2015"
+            },
+            "year_end": {
+              "id": "year_end",
+              "name": "year_end",
+              "type": "number",
+              "default": "2030"
+            }
+          }
+        }
+      },
+      "display": {
+        "column_settings": {
+          "impact_on_liability": {
+            "number_style": "currency",
+            "currency": "USD"
+          },
+          "impact_on_funded_ratio": {
+            "number_style": "percent",
+            "decimals": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "p6",
+      "name": "Pension Summary Metrics",
+      "description": "Latest year pension metrics at-a-glance",
+      "visualization": {
+        "type": "scalar",
+        "layout": "grid"
+      },
+      "query": {
+        "database": "ibco_production",
+        "type": "native",
+        "native": {
+          "query": "WITH latest_fy AS (\n  SELECT id, year\n  FROM fiscal_years fy\n  JOIN cities c ON fy.city_id = c.id\n  WHERE c.name = {{city_filter}}\n  ORDER BY year DESC\n  LIMIT 1\n),\npension_totals AS (\n  SELECT\n    SUM(pp.unfunded_actuarial_liability) AS total_ual,\n    SUM(pp.total_pension_liability) AS total_liability,\n    SUM(pp.fiduciary_net_position) AS total_assets,\n    SUM(pp.total_employer_contribution) AS total_contribution,\n    AVG(pp.funded_ratio) AS avg_funded_ratio\n  FROM pension_plans pp\n  WHERE pp.fiscal_year_id = (SELECT id FROM latest_fy)\n    AND pp.is_deleted = false\n)\nSELECT\n  (SELECT year FROM latest_fy) AS fiscal_year,\n  (SELECT total_ual FROM pension_totals) AS total_ual,\n  (SELECT total_liability FROM pension_totals) AS total_pension_liability,\n  (SELECT total_assets FROM pension_totals) AS total_plan_assets,\n  (SELECT avg_funded_ratio FROM pension_totals) AS avg_funded_ratio,\n  (SELECT total_contribution FROM pension_totals) AS annual_contribution;",
+          "template-tags": {
+            "city_filter": {
+              "id": "city_filter",
+              "name": "city_filter",
+              "type": "text",
+              "default": "Vallejo"
+            }
+          }
+        }
+      },
+      "display": {
+        "cards": [
+          {
+            "title": "Latest Fiscal Year",
+            "field": "fiscal_year",
+            "type": "heading"
+          },
+          {
+            "title": "Total Unfunded Liability (UAL)",
+            "field": "total_ual",
+            "format": "currency",
+            "color": "#F44336"
+          },
+          {
+            "title": "Total Pension Liability",
+            "field": "total_pension_liability",
+            "format": "currency"
+          },
+          {
+            "title": "Total Plan Assets",
+            "field": "total_plan_assets",
+            "format": "currency"
+          },
+          {
+            "title": "Average Funded Ratio",
+            "field": "avg_funded_ratio",
+            "format": "percent",
+            "color_rules": [
+              {
+                "condition": ">= 0.90",
+                "color": "#4CAF50"
+              },
+              {
+                "condition": ">= 0.70",
+                "color": "#FFC107"
+              },
+              {
+                "condition": ">= 0.50",
+                "color": "#FF5722"
+              },
+              {
+                "condition": "< 0.50",
+                "color": "#D32F2F"
+              }
+            ]
+          },
+          {
+            "title": "Annual Employer Contribution",
+            "field": "annual_contribution",
+            "format": "currency"
+          }
+        ]
+      }
+    }
+  ],
+  "layout": {
+    "width": 12,
+    "cards": [
+      {
+        "id": "card_p6",
+        "question_id": "p6",
+        "row": 0,
+        "col": 0,
+        "size_x": 12,
+        "size_y": 3
+      },
+      {
+        "id": "card_p1",
+        "question_id": "p1",
+        "row": 3,
+        "col": 0,
+        "size_x": 6,
+        "size_y": 4
+      },
+      {
+        "id": "card_p2",
+        "question_id": "p2",
+        "row": 3,
+        "col": 6,
+        "size_x": 6,
+        "size_y": 4
+      },
+      {
+        "id": "card_p3",
+        "question_id": "p3",
+        "row": 7,
+        "col": 0,
+        "size_x": 6,
+        "size_y": 4
+      },
+      {
+        "id": "card_p4",
+        "question_id": "p4",
+        "row": 7,
+        "col": 6,
+        "size_x": 6,
+        "size_y": 4
+      },
+      {
+        "id": "card_p5",
+        "question_id": "p5",
+        "row": 11,
+        "col": 0,
+        "size_x": 12,
+        "size_y": 4
+      }
+    ]
+  },
+  "public_access": {
+    "enabled": true,
+    "embedding_enabled": true,
+    "signed_embedding": false,
+    "auto_refresh_interval": 86400
+  },
+  "metadata": {
+    "created_by": "IBCo System",
+    "version": "1.0",
+    "last_updated": "2025-11-12",
+    "data_source": "PostgreSQL - IBCo Production Database",
+    "notes": "Pension deep-dive dashboard. Pension underfunding is THE primary driver of California municipal fiscal stress. All data from CalPERS actuarial valuations with complete lineage tracking."
+  }
+}
