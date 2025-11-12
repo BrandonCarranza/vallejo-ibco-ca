@@ -16,7 +16,7 @@ from src.config.settings import settings
 from src.config.logging_config import setup_logging, get_logger
 from src.config.observability import setup_observability
 from src.api.v1.routes import health, cities, financial, risk, projections, metadata, lineage
-from src.api.v1.routes.admin import quality_dashboard, tokens, refresh_status
+from src.api.v1.routes.admin import quality_dashboard, tokens, refresh_status, validation_workflow
 from src.api.middleware.authentication import AuthenticationMiddleware
 from src.api.middleware.rate_limiting import RateLimitMiddleware
 
@@ -129,6 +129,7 @@ app.include_router(lineage.router, prefix=settings.api_prefix, tags=["Data Linea
 app.include_router(quality_dashboard.router, prefix=settings.api_prefix, tags=["Admin", "Data Quality"])
 app.include_router(tokens.router, prefix=f"{settings.api_prefix}/admin", tags=["Admin", "Token Management"])
 app.include_router(refresh_status.router, prefix=settings.api_prefix, tags=["Admin", "Data Refresh"])
+app.include_router(validation_workflow.router, prefix=settings.api_prefix, tags=["Admin", "Validation"])
 
 
 # Root endpoint
