@@ -16,7 +16,7 @@ from src.config.settings import settings
 from src.config.logging_config import setup_logging, get_logger
 from src.config.observability import setup_observability
 from src.api.v1.routes import health, cities, financial, risk, projections, metadata, lineage, decisions, notifications
-from src.api.v1.routes.admin import quality_dashboard, tokens, refresh_status, validation_workflow, decisions as admin_decisions, stakeholder_list
+from src.api.v1.routes.admin import quality_dashboard, tokens, refresh_status, validation_workflow, decisions as admin_decisions, stakeholder_list, legal_incidents
 from src.api.middleware.authentication import AuthenticationMiddleware
 from src.api.middleware.rate_limiting import RateLimitMiddleware
 
@@ -140,6 +140,16 @@ tags_metadata = [
             "**Internal use only.** Stakeholder communication management. "
             "Manage subscriber list, configure alert rules, send quarterly updates and press releases. "
             "Privacy-respecting: GDPR-compliant with easy unsubscribe. Strictly non-partisan communications. "
+            "Requires authentication."
+        ),
+    },
+    {
+        "name": "Legal Defense",
+        "description": (
+            "**Internal use only.** Legal incident tracking and defense automation. "
+            "Log cease-and-desist letters, defamation claims, SLAPP lawsuits, and harassment. "
+            "Track responses, manage documentation, and generate transparency reports. "
+            "Integrated with dead-man's switch to make suppression attempts counterproductive. "
             "Requires authentication."
         ),
     },
@@ -269,6 +279,7 @@ app.include_router(refresh_status.router, prefix=settings.api_prefix, tags=["Adm
 app.include_router(validation_workflow.router, prefix=settings.api_prefix, tags=["Admin", "Validation"])
 app.include_router(admin_decisions.router, prefix=settings.api_prefix, tags=["Admin", "Decisions"])
 app.include_router(stakeholder_list.router, prefix=settings.api_prefix, tags=["Admin", "Stakeholders"])
+app.include_router(legal_incidents.router, prefix=settings.api_prefix, tags=["Admin", "Legal Defense"])
 
 
 # Root endpoint

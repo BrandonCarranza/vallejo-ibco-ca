@@ -11,6 +11,7 @@ Organized by domain:
 - validation: Manual review and validation workflow
 - civic: City council decisions, votes, and outcome tracking
 - stakeholders: Subscriber management, alerts, and notifications
+- legal: Legal defense, incidents, responses, and transparency
 """
 
 # Core models
@@ -90,6 +91,14 @@ from src.database.models.stakeholders import (
     SubscriberStatus,
 )
 
+# Legal defense models
+from src.database.models.legal import (
+    LegalDocument,
+    LegalIncident,
+    LegalResponse,
+    LegalTemplate,
+)
+
 __all__ = [
     # Core models
     "City",
@@ -146,4 +155,9 @@ __all__ = [
     "Notification",
     "NotificationType",
     "NotificationStatus",
+    # Legal defense models
+    "LegalIncident",
+    "LegalResponse",
+    "LegalDocument",
+    "LegalTemplate",
 ]
