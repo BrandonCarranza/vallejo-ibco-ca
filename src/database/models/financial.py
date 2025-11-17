@@ -66,19 +66,34 @@ class Revenue(Base, AuditMixin):
 
     Tracks both budgeted and actual revenues by category and fund type.
     Critical for analyzing revenue volatility and concentration.
+
+    **Three-Tier CAFR Data Structure**:
+    - Tier 1 (Financial Section): Stated current year data - PRIMARY FOR ANALYSIS
+    - Tier 2 (Notes): Methodology and assumptions - CONTEXT ONLY
+    - Tier 3 (Statistical Section): Restated historical data - COMPARISON ONLY
+
+    **Stated vs Restated**:
+    - Stated data (is_primary_version=True): Original reported values, used for all analysis
+    - Restated data (is_primary_version=False): Revised historical values from later CAFRs
     """
 
     __tablename__ = "revenues"
     __table_args__ = (
+        # UPDATED: Version-aware unique constraint
         UniqueConstraint(
             "fiscal_year_id",
             "category_id",
             "fund_type",
-            name="uq_revenue_year_category_fund",
+            "cafr_tier",
+            "data_version_type",
+            "source_cafr_year",
+            name="uq_revenue_version",
         ),
         CheckConstraint("actual_amount >= 0", name="ck_revenue_actual_non_negative"),
         Index("ix_revenue_fiscal_year", "fiscal_year_id"),
         Index("ix_revenue_category", "category_id"),
+        # NEW: Critical index for analytics queries (filter on primary versions)
+        Index("ix_revenue_is_primary", "is_primary_version", "fiscal_year_id"),
     )
 
     id = Column(Integer, primary_key=True)
@@ -94,6 +109,59 @@ class Revenue(Base, AuditMixin):
     # Amounts (in dollars)
     budget_amount = Column(Numeric(15, 2), nullable=True)
     actual_amount = Column(Numeric(15, 2), nullable=False)
+
+    # ========================================================================
+    # THREE-TIER CAFR DATA TRACKING (CRITICAL FOR DATA INTEGRITY)
+    # ========================================================================
+
+    # Which section of the CAFR reported this data?
+    cafr_tier = Column(
+        String(20),
+        nullable=False,
+        default="tier_1_financial",
+        comment="tier_1_financial, tier_2_notes, tier_3_statistical"
+    )
+
+    # Is this stated (original) or restated (revised in later CAFR)?
+    data_version_type = Column(
+        String(20),
+        nullable=False,
+        default="stated",
+        comment="stated (primary) or restated (historical comparison)"
+    )
+
+    # Which CAFR year reported this value?
+    # Example: FY2020 data appears in FY2020 CAFR (stated) AND FY2024 CAFR (restated)
+    source_cafr_year = Column(
+        Integer,
+        nullable=False,
+        comment="Year of CAFR that reported this data"
+    )
+
+    # Should this version be used for analysis?
+    # TRUE = stated data (ground truth)
+    # FALSE = restated data (comparison only, DO NOT USE in risk scores/projections)
+    is_primary_version = Column(
+        Boolean,
+        nullable=False,
+        default=True,
+        comment="True = use for analysis; False = historical comparison only"
+    )
+
+    # Why was this restated (if applicable)?
+    restatement_reason = Column(
+        Text,
+        nullable=True,
+        comment="GASB standard change, reclassification, error correction, etc."
+    )
+
+    # Link to previous version if this is a restatement
+    supersedes_version_id = Column(
+        Integer,
+        ForeignKey("revenues.id"),
+        nullable=True,
+        comment="Points to stated version if this is a restatement"
+    )
 
     # Variance Analysis
     variance_amount = Column(Numeric(15, 2), nullable=True)  # Actual - Budget
